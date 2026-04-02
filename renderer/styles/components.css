@@ -412,9 +412,42 @@
   color: var(--text-muted);
 }
 
+/* Card value overflow protection */
+.metric-card .card-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
 /* Sweep Trigger card value override */
 #sweep-status {
   font-size: 48px;
+}
+
+/* Manual sweep button overflow protection */
+#btn-manual-sweep {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Responsive metric card scaling */
+@media (max-width: 1300px) {
+  .metric-card .card-value {
+    font-size: 36px;
+  }
+  #sweep-status {
+    font-size: 32px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .metric-card .card-value {
+    font-size: 28px;
+  }
+  #sweep-status {
+    font-size: 24px;
+  }
 }
 
 /* Progress bar */
@@ -612,7 +645,6 @@
   font-size: 13px;
   line-height: 1.7;
   color: var(--text-secondary);
-  white-space: pre-wrap;
 }
 
 .nova-brief-content .codename {
@@ -642,6 +674,81 @@
   color: var(--warn-amber);
   font-size: 9px;
   margin-bottom: 8px;
+}
+
+/* Phase 3b-fix: Structured Nova brief blocks */
+.nova-strategy-block {
+  padding: 12px 0;
+}
+
+.nova-strategy-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.nova-codename {
+  font-family: 'Cinzel', serif;
+  font-size: 14px;
+  color: var(--cyan-hot);
+  letter-spacing: 0.12em;
+}
+
+.nova-timeline {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: var(--bronze-mid);
+  background: var(--bg-surface);
+  border: 1px solid var(--bronze-dim);
+  border-radius: 3px;
+  padding: 2px 8px;
+}
+
+.nova-field {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 8px;
+  margin-bottom: 6px;
+  align-items: baseline;
+}
+
+.nova-field-label {
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding-top: 2px;
+}
+
+.nova-field-value {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.nova-field-edge .nova-field-value {
+  color: var(--bronze-light);
+}
+
+.nova-field-risk .nova-field-value {
+  color: var(--warn-amber);
+}
+
+.nova-strategy-divider {
+  height: 1px;
+  background: var(--bronze-dim);
+  margin: 8px 0;
+  opacity: 0.5;
+}
+
+.nova-plain {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.7;
 }
 
 .nova-footer {

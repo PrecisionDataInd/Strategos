@@ -254,8 +254,23 @@ html, body {
   width: 270px;
   min-width: 270px;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 16px 14px;
   position: relative;
+}
+
+#left-sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+#left-sidebar::-webkit-scrollbar-track {
+  background: var(--bg-void);
+}
+#left-sidebar::-webkit-scrollbar-thumb {
+  background: var(--bronze-dim);
+  border-radius: 2px;
+}
+#left-sidebar::-webkit-scrollbar-thumb:hover {
+  background: var(--bronze-mid);
 }
 
 .column-divider {

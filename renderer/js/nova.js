@@ -158,46 +158,102 @@ const NovaUI = {
   },
 
   parseBriefToHtml(text) {
-    // Escape HTML first
-    const escaped = text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+    // Strip tactical brief header lines
+    let cleaned = text
+      .replace(/^#+ .*TACTICAL BRIEF.*$/gim, '')
+      .replace(/^#+ .*NOVA.*INTELLIGENCE.*$/gim, '')
+      .replace(/```json[\s\S]*?```/g, '')
+      .trim();
 
-    // Highlight CODENAME: lines
-    let html = escaped.replace(
-      /^(CODENAME:)\s*(.+)$/gm,
-      '<span class="codename">$1</span> <span class="codename">$2</span>'
-    );
+    // Try structured parsing (handles both **FIELD:** markdown and plain FIELD: formats)
+    const fieldPattern = /\*{0,2}(CODENAME):?\*{0,2}[:\s]+(.+)/i;
+    const hasStructuredBlocks = fieldPattern.test(cleaned);
 
-    // Highlight OPPORTUNITY: values
-    html = html.replace(
-      /^(OPPORTUNITY:)\s*(.+)$/gm,
-      '<span class="codename">$1</span> <span class="opportunity-value">$2</span>'
-    );
-
-    // Highlight other field labels
-    const fields = ['MECHANISM', 'EDGE', 'RISK', 'TIMELINE'];
-    fields.forEach((field) => {
-      const regex = new RegExp(`^(${field}:)`, 'gm');
-      html = html.replace(regex, '<span class="codename">$1</span>');
-    });
-
-    // Add dividers between strategy blocks (before CODENAME lines that aren't the first)
-    const lines = html.split('\n');
-    let codenameCount = 0;
-    const result = [];
-    for (const line of lines) {
-      if (line.includes('CODENAME:')) {
-        codenameCount++;
-        if (codenameCount > 1) {
-          result.push('<hr class="strategy-divider">');
-        }
-      }
-      result.push(line);
+    if (hasStructuredBlocks) {
+      return this.parseStructuredBrief(cleaned);
     }
 
-    return result.join('\n');
+    // Fallback: render as cleaned plain text
+    const escaped = this.escapeHtml(cleaned);
+    return '<div class="nova-plain">' + escaped.replace(/\n/g, '<br>') + '</div>';
+  },
+
+  parseStructuredBrief(text) {
+    // Split into strategy blocks — look for CODENAME markers (plain or markdown)
+    const blocks = text.split(/(?=(?:#{1,3}\s+)?(?:STRATEGY\s+\d|(?:\*{0,2})CODENAME(?:\*{0,2})))/i).filter(b => b.trim());
+
+    if (blocks.length === 0) {
+      const escaped = this.escapeHtml(text);
+      return '<div class="nova-plain">' + escaped.replace(/\n/g, '<br>') + '</div>';
+    }
+
+    return blocks.map((block) => {
+      // Extract fields — handle both **FIELD:** and FIELD: patterns
+      function extractField(name) {
+        // Match: **FIELD:** value, FIELD: value, **FIELD**: value
+        const patterns = [
+          new RegExp('\\*\\*' + name + ':\\*\\*\\s*(.+)', 'im'),
+          new RegExp('\\*\\*' + name + '\\*\\*:\\s*(.+)', 'im'),
+          new RegExp('^' + name + ':\\s*(.+)', 'im'),
+        ];
+        for (const p of patterns) {
+          const m = block.match(p);
+          if (m) return m[1].trim();
+        }
+        return '';
+      }
+
+      function extractMultilineField(name) {
+        // For MECHANISM which can span multiple lines
+        const patterns = [
+          new RegExp('\\*\\*' + name + ':\\*\\*\\s*([\\s\\S]*?)(?=\\*\\*(?:EDGE|RISK|TIMELINE)|$)', 'im'),
+          new RegExp('\\*\\*' + name + '\\*\\*:\\s*([\\s\\S]*?)(?=\\*\\*(?:EDGE|RISK|TIMELINE)|$)', 'im'),
+          new RegExp('^' + name + ':\\s*([\\s\\S]*?)(?=^(?:EDGE|RISK|TIMELINE):)', 'im'),
+        ];
+        for (const p of patterns) {
+          const m = block.match(p);
+          if (m) return m[1].replace(/\*\*/g, '').trim();
+        }
+        return '';
+      }
+
+      const codename = extractField('CODENAME');
+      const opportunity = extractField('OPPORTUNITY');
+      const mechanism = extractMultilineField('MECHANISM');
+      const edge = extractField('EDGE');
+      const risk = extractField('RISK');
+      const timeline = extractField('TIMELINE');
+
+      // If we couldn't extract a codename, render block as plain text
+      if (!codename) {
+        const escaped = this.escapeHtml(block);
+        return '<div class="nova-plain">' + escaped.replace(/\n/g, '<br>') + '</div>';
+      }
+
+      let html = '<div class="nova-strategy-block">';
+      html += '<div class="nova-strategy-header">';
+      html += '<span class="nova-codename">' + this.escapeHtml(codename) + '</span>';
+      if (timeline) {
+        html += '<span class="nova-timeline">' + this.escapeHtml(timeline) + '</span>';
+      }
+      html += '</div>';
+
+      if (opportunity) {
+        html += '<div class="nova-field"><span class="nova-field-label">OPPORTUNITY</span><span class="nova-field-value">' + this.escapeHtml(opportunity) + '</span></div>';
+      }
+      if (mechanism) {
+        html += '<div class="nova-field"><span class="nova-field-label">MECHANISM</span><span class="nova-field-value">' + this.escapeHtml(mechanism) + '</span></div>';
+      }
+      if (edge) {
+        html += '<div class="nova-field nova-field-edge"><span class="nova-field-label">EDGE</span><span class="nova-field-value">' + this.escapeHtml(edge) + '</span></div>';
+      }
+      if (risk) {
+        html += '<div class="nova-field nova-field-risk"><span class="nova-field-label">RISK</span><span class="nova-field-value">' + this.escapeHtml(risk) + '</span></div>';
+      }
+
+      html += '</div>';
+      return html;
+    }).join('<div class="nova-strategy-divider"></div>');
   },
 
   showLoadingState() {
