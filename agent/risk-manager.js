@@ -1,7 +1,7 @@
 const Store = require('electron-store');
 const store = new Store({ name: 'strategos-risk' });
 
-const DRAWDOWN_HALT_PCT = 0.20; // 20% from session high triggers halt
+const DRAWDOWN_HALT_PCT = 0.35; // 35% from session high triggers halt
 
 function initSession(currentBalanceSol) {
   // Set session high on first call if not already set
@@ -29,16 +29,16 @@ function checkDrawdown(currentBalance, log) {
 
   if (drawdownPct >= DRAWDOWN_HALT_PCT) {
     log('CRITICAL',
-      `RISK MANAGER: drawdown ${(drawdownPct * 100).toFixed(2)}% exceeds 20% limit — HALTING AGENT`,
+      `RISK MANAGER: drawdown ${(drawdownPct * 100).toFixed(2)}% exceeds 35% limit — HALTING AGENT`,
       { drawdownPct, sessionHigh, currentBalance }
     );
     return { shouldHalt: true, drawdownPct, sessionHigh };
   }
 
-  // Warn at 10% but do not halt
-  if (drawdownPct >= 0.10) {
+  // Warn at 20% but do not halt
+  if (drawdownPct >= 0.20) {
     log('WARN',
-      `RISK MANAGER: drawdown ${(drawdownPct * 100).toFixed(2)}% — monitoring (halt triggers at 20%)`,
+      `RISK MANAGER: drawdown ${(drawdownPct * 100).toFixed(2)}% — monitoring (halt triggers at 35%)`,
       { drawdownPct, sessionHigh }
     );
   }

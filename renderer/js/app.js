@@ -230,6 +230,9 @@
       } else {
         await window.strategos.agent.start();
         agentRunning = true;
+        // Hide risk halt banner on manual restart
+        var riskBanner = document.getElementById('banner-risk-halt');
+        if (riskBanner) riskBanner.style.display = 'none';
       }
       updateAgentUI();
     } catch (e) {
@@ -360,10 +363,15 @@
   function handleAgentHalted(data) {
     agentRunning = false;
     updateAgentUI();
-    if (data && data.reason === 'DRAWDOWN_EXCEEDED') {
-      showErrorBanner('critical', 'AGENT HALTED \u2014 Drawdown ' + ((data.drawdownPct || 0) * 100).toFixed(1) + '% exceeds 20% limit. Reset session to resume.');
-    } else {
-      showErrorBanner('critical', 'AGENT HALTED \u2014 Balance below loss floor. Manual intervention required.');
+
+    var banner = document.getElementById('banner-risk-halt');
+    if (banner) {
+      if (data && data.reason === 'DRAWDOWN_EXCEEDED') {
+        banner.textContent = 'AGENT HALTED \u2014 Drawdown ' + ((data.drawdownPct || 0) * 100).toFixed(1) + '% exceeds 35% limit. Click START AGENT to resume.';
+      } else {
+        banner.textContent = 'AGENT HALTED \u2014 Balance below loss floor. Click START AGENT to resume.';
+      }
+      banner.style.display = 'block';
     }
   }
 
@@ -384,11 +392,11 @@
 
     if (drawdownEl) drawdownEl.textContent = pct + '%';
     if (barFill) {
-      const fillPct = Math.min(riskData.drawdownPct / 0.20 * 100, 100);
+      const fillPct = Math.min(riskData.drawdownPct / 0.35 * 100, 100);
       barFill.style.width = fillPct + '%';
-      if (riskData.drawdownPct >= 0.15) {
+      if (riskData.drawdownPct >= 0.30) {
         barFill.className = 'risk-bar-fill critical';
-      } else if (riskData.drawdownPct >= 0.10) {
+      } else if (riskData.drawdownPct >= 0.20) {
         barFill.className = 'risk-bar-fill warning';
       } else {
         barFill.className = 'risk-bar-fill normal';
@@ -398,7 +406,7 @@
       if (riskData.shouldHalt) {
         statusEl.textContent = 'HALTED';
         statusEl.style.color = 'var(--loss-red)';
-      } else if (riskData.drawdownPct >= 0.10) {
+      } else if (riskData.drawdownPct >= 0.20) {
         statusEl.textContent = 'CAUTION';
         statusEl.style.color = 'var(--warn-amber)';
       } else {

@@ -6,6 +6,7 @@ const { runStopLossCheck } = require('./strategies/stop-loss');
 
 let loopInterval = null;
 let running = false;
+let haltedByRiskManager = false;
 let lastCheck = null;
 let nextCheck = null;
 let deps = null;
@@ -13,6 +14,7 @@ let deps = null;
 function getAgentStatus() {
   return {
     running,
+    haltedByRiskManager,
     lastCheck,
     nextCheck,
   };
@@ -22,6 +24,7 @@ async function startAgentLoop(dependencies) {
   if (running) return;
   deps = dependencies;
   running = true;
+  haltedByRiskManager = false;
 
   const cfg = deps.getConfig();
   const intervalMs = (cfg.checkIntervalSeconds || 120) * 1000;
@@ -125,6 +128,7 @@ async function runTick() {
     const riskCheck = checkDrawdown(agentBalance, logFnRisk);
 
     if (riskCheck.shouldHalt) {
+      haltedByRiskManager = true;
       deps.emitToRenderer('agent:halted', { reason: 'DRAWDOWN_EXCEEDED', ...riskCheck });
       deps.emitToRenderer('risk:status', riskCheck);
       stopAgentLoop();
