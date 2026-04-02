@@ -15,6 +15,7 @@ const { runHarvest } = require('./agent/harvest');
 const { startPriceFeed, getCachedPrice } = require('./agent/price-feed');
 const { startReportScheduler, sendDailyReport } = require('./agent/reporter');
 const { getPortfolioSummary, getTransactionLedger } = require('./agent/portfolio');
+const { runUnwind } = require('./agent/unwind');
 
 // ---------------------------------------------------------------------------
 // Dependency check — log missing packages without crashing
@@ -437,6 +438,31 @@ function registerIPC() {
   ipcMain.handle('report:sendNow', async () => {
     const { agent, vault } = lastKnownBalances;
     return await sendDailyReport({ agentBalance: agent, vaultBalance: vault, sessionPnl: 0, log: logEntry });
+  });
+
+  // Emergency Unwind
+  ipcMain.handle('agent:unwind', async () => {
+    // Stop agent first
+    stopAgentLoop();
+
+    let vaultPubkey = null;
+    try {
+      if (process.env.VAULT_WALLET_PUBLIC_KEY) {
+        vaultPubkey = new PublicKey(process.env.VAULT_WALLET_PUBLIC_KEY);
+      }
+    } catch (_) {}
+
+    return await runUnwind({
+      connection,
+      agentKeypair,
+      vaultPublicKey: vaultPubkey,
+      log: logEntry,
+      onProgress: (results) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('unwind:progress', results);
+        }
+      },
+    });
   });
 
   ipcMain.handle('window:minimize', () => mainWindow && mainWindow.minimize());

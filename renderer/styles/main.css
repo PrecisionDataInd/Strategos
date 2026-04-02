@@ -777,3 +777,191 @@ html, body {
   outline: none;
   border-color: var(--cyan-mid);
 }
+
+/* ==========================================================================
+   Emergency Unwind
+   ========================================================================== */
+
+.unwind-btn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 0;
+  background: rgba(201,76,76,0.08);
+  border: 1px solid var(--loss-red);
+  border-radius: 4px;
+  color: var(--loss-red);
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.unwind-btn:hover {
+  background: rgba(201,76,76,0.18);
+}
+
+.unwind-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(10,6,8,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.unwind-modal-box {
+  background: var(--bg-card);
+  border: 1px solid var(--loss-red);
+  border-radius: 6px;
+  padding: 24px 28px;
+  max-width: 420px;
+  width: 90%;
+}
+
+.unwind-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.unwind-modal-icon {
+  font-size: 20px;
+  color: var(--loss-red);
+}
+
+.unwind-modal-title {
+  font-family: 'Cinzel', serif;
+  font-size: 14px;
+  color: var(--loss-red);
+  letter-spacing: 0.12em;
+}
+
+.unwind-modal-body p {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+
+.unwind-checklist {
+  background: var(--bg-surface);
+  border: 1px solid var(--bronze-dim);
+  border-radius: 4px;
+  padding: 10px 14px;
+  margin: 12px 0;
+}
+
+.unwind-checklist div {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 3px 0;
+}
+
+.unwind-modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  justify-content: flex-end;
+}
+
+.unwind-cancel-btn {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--bronze-dim);
+  border-radius: 3px;
+  padding: 6px 16px;
+  cursor: pointer;
+}
+
+.unwind-confirm-btn {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: #fff;
+  background: var(--loss-red);
+  border: 1px solid var(--loss-red);
+  border-radius: 3px;
+  padding: 6px 16px;
+  cursor: pointer;
+  opacity: 0.9;
+}
+
+.unwind-confirm-btn:hover { opacity: 1; }
+
+.unwind-progress {
+  position: fixed;
+  inset: 0;
+  background: rgba(10,6,8,0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+}
+
+.unwind-progress-box {
+  background: var(--bg-card);
+  border: 1px solid var(--bronze-dim);
+  border-radius: 6px;
+  padding: 24px 28px;
+  max-width: 520px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.unwind-progress-title {
+  font-family: 'Cinzel', serif;
+  font-size: 14px;
+  color: var(--bronze-light);
+  letter-spacing: 0.12em;
+  margin-bottom: 4px;
+}
+
+.unwind-progress-subtitle {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.unwind-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.unwind-step {
+  display: grid;
+  grid-template-columns: 20px 80px 1fr;
+  gap: 8px;
+  align-items: baseline;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+}
+
+.unwind-step-icon { font-size: 12px; }
+
+.unwind-step-label {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.unwind-step-detail { color: var(--text-muted); }
+
+.unwind-complete-msg {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--bronze-dim);
+  margin-top: 8px;
+}

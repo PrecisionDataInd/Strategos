@@ -109,6 +109,16 @@
       btnHarvest.addEventListener('click', runHarvestNow);
     }
 
+    // Emergency Unwind buttons
+    const btnUnwind = document.getElementById('btn-unwind');
+    if (btnUnwind) btnUnwind.addEventListener('click', showUnwindConfirm);
+    const btnUnwindCancel = document.getElementById('btn-unwind-cancel');
+    if (btnUnwindCancel) btnUnwindCancel.addEventListener('click', hideUnwindConfirm);
+    const btnUnwindConfirm = document.getElementById('btn-unwind-confirm');
+    if (btnUnwindConfirm) btnUnwindConfirm.addEventListener('click', executeUnwind);
+    const btnUnwindDone = document.getElementById('unwind-done-btn');
+    if (btnUnwindDone) btnUnwindDone.addEventListener('click', closeUnwindProgress);
+
     // Start countdown timer
     startCountdown();
 
@@ -684,6 +694,65 @@
     }
     btn.disabled = false;
     setTimeout(function () { btn.textContent = 'SEND REPORT \u2197'; }, 3000);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Emergency Unwind
+  // ---------------------------------------------------------------------------
+  function showUnwindConfirm() {
+    document.getElementById('unwind-modal').style.display = 'flex';
+  }
+
+  function hideUnwindConfirm() {
+    document.getElementById('unwind-modal').style.display = 'none';
+  }
+
+  async function executeUnwind() {
+    hideUnwindConfirm();
+    document.getElementById('unwind-progress').style.display = 'flex';
+    document.getElementById('unwind-steps').innerHTML = '';
+
+    // Listen for progress updates
+    window.strategos.agent.onUnwindProgress(function (results) {
+      var stepsEl = document.getElementById('unwind-steps');
+      stepsEl.innerHTML = results.steps.map(function (step) {
+        var icon = step.status === 'OK' ? '\u2713' :
+                   step.status === 'SKIP' ? '\u2014' :
+                   step.status === 'PENDING' ? '\u25CC' : '\u2717';
+        var color = step.status === 'OK' ? 'var(--gain-green)' :
+                    step.status === 'ERROR' ? 'var(--loss-red)' :
+                    step.status === 'PENDING' ? 'var(--cyan-hot)' :
+                    'var(--text-muted)';
+        return '<div class="unwind-step">'
+          + '<span class="unwind-step-icon" style="color:' + color + '">' + icon + '</span>'
+          + '<span class="unwind-step-label" style="color:' + color + '">' + step.label + '</span>'
+          + '<span class="unwind-step-detail">' + step.detail + '</span>'
+          + '</div>';
+      }).join('');
+
+      if (results.complete) {
+        var completeEl = document.getElementById('unwind-complete-msg');
+        var errCount = results.errors.length;
+        completeEl.innerHTML = errCount === 0
+          ? '<span style="color:var(--gain-green)">UNWIND COMPLETE \u2014 All positions closed. Funds swept to vault.</span>'
+          : '<span style="color:var(--warn-amber)">UNWIND COMPLETE WITH ' + errCount + ' WARNING(S) \u2014 Check steps above and Mission Log for details.</span>';
+        completeEl.style.display = 'block';
+        document.getElementById('unwind-done-btn').style.display = 'block';
+      }
+    });
+
+    // Execute unwind
+    try {
+      await window.strategos.agent.unwind();
+    } catch (err) {
+      var stepsEl = document.getElementById('unwind-steps');
+      stepsEl.innerHTML += '<div class="unwind-step" style="color:var(--loss-red)">\u2717 UNWIND ERROR: ' + err.message + '</div>';
+      document.getElementById('unwind-done-btn').style.display = 'block';
+    }
+  }
+
+  function closeUnwindProgress() {
+    document.getElementById('unwind-progress').style.display = 'none';
   }
 
   // ---------------------------------------------------------------------------

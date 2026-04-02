@@ -83,6 +83,7 @@
         <div id="agent-last-check" class="agent-check-info">LAST CHECK: —</div>
         <div id="agent-next-check" class="agent-check-info">NEXT CHECK: —</div>
         <button id="btn-agent-toggle" class="btn-bronze">HALT AGENT</button>
+        <button id="btn-unwind" class="unwind-btn">EMERGENCY UNWIND</button>
 
         <!-- SECTION 2: Wallet Command -->
         <div class="section-header">Wallet Command</div>
@@ -337,6 +338,43 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Unwind Confirm Modal -->
+  <div id="unwind-modal" class="unwind-modal" style="display:none;">
+    <div class="unwind-modal-box">
+      <div class="unwind-modal-header">
+        <span class="unwind-modal-icon">&#9888;</span>
+        <span class="unwind-modal-title">EMERGENCY UNWIND</span>
+      </div>
+      <div class="unwind-modal-body">
+        <p>This will close ALL positions, convert assets to SOL, and sweep your full balance to the vault wallet.</p>
+        <p>This operation cannot be undone. Estimated time: 2-5 minutes.</p>
+        <div class="unwind-checklist">
+          <div>&#9678; Unstake all mSOL &rarr; SOL</div>
+          <div>&#9678; Withdraw lending deposits</div>
+          <div>&#9678; Close LP positions</div>
+          <div>&#9678; Cancel grid orders</div>
+          <div>&#9678; Convert USDC &rarr; SOL</div>
+          <div>&#9678; Sweep full balance to vault</div>
+        </div>
+      </div>
+      <div class="unwind-modal-actions">
+        <button class="unwind-cancel-btn" id="btn-unwind-cancel">CANCEL</button>
+        <button class="unwind-confirm-btn" id="btn-unwind-confirm">CONFIRM UNWIND</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unwind Progress Overlay -->
+  <div id="unwind-progress" class="unwind-progress" style="display:none;">
+    <div class="unwind-progress-box">
+      <div class="unwind-progress-title">UNWIND IN PROGRESS</div>
+      <div class="unwind-progress-subtitle">Do not close Strategos</div>
+      <div id="unwind-steps" class="unwind-steps"></div>
+      <div id="unwind-complete-msg" class="unwind-complete-msg" style="display:none;"></div>
+      <button id="unwind-done-btn" class="unwind-cancel-btn" style="display:none;">CLOSE</button>
     </div>
   </div>
 
