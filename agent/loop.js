@@ -1,6 +1,7 @@
 const { startHarvestTimer, stopHarvestTimer } = require('./harvest');
 const { getPositions, getOpenPositions, savePosition } = require('./positions');
 const { initSession, recordBalance, checkDrawdown, resetSession } = require('./risk-manager');
+const { getCachedPrice } = require('./price-feed');
 
 let loopInterval = null;
 let running = false;
@@ -176,7 +177,10 @@ async function runTick() {
       }
     }
 
-    // Emit tick with position data
+    // Phase 4: Emit price data alongside tick
+    const priceData = getCachedPrice();
+
+    // Emit tick with position data and price
     deps.emitToRenderer('agent:tick', {
       running: true,
       lastCheck,
@@ -186,6 +190,7 @@ async function runTick() {
       sweepResult,
       strategyResults,
       positions: getPositions(),
+      price: priceData,
     });
   } catch (e) {
     console.error('Agent tick error:', e.message);

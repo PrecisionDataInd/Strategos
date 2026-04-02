@@ -12,6 +12,9 @@ const { executeLiveSweep } = require('./agent/sweep-live');
 const { runStrategies, STRATEGIES } = require('./agent/strategies/index');
 const { getPositions } = require('./agent/positions');
 const { runHarvest } = require('./agent/harvest');
+const { startPriceFeed, getCachedPrice } = require('./agent/price-feed');
+const { startReportScheduler, sendDailyReport } = require('./agent/reporter');
+const { getPortfolioSummary, getTransactionLedger } = require('./agent/portfolio');
 
 // ---------------------------------------------------------------------------
 // Dependency check — log missing packages without crashing
@@ -71,6 +74,9 @@ let vaultPublicKey = null;
 
 // Phase 2: strategy results cache
 let latestStrategyResults = [];
+
+// Phase 4: balance cache for reporter
+let lastKnownBalances = { agent: 0, vault: 0 };
 
 // ---------------------------------------------------------------------------
 // Config helpers
@@ -398,6 +404,41 @@ function registerIPC() {
   });
   ipcMain.handle('harvest:getLastResult', () => store.get('lastHarvest', null));
 
+  // Phase 4: Price, Portfolio, Report IPC handlers
+  ipcMain.handle('price:get', () => getCachedPrice());
+
+  ipcMain.handle('portfolio:getSummary', () => getPortfolioSummary());
+
+  ipcMain.handle('portfolio:getTransactions', () => getTransactionLedger());
+
+  ipcMain.handle('portfolio:exportCSV', async () => {
+    const { dialog } = require('electron');
+    const ledger = getTransactionLedger();
+
+    const { filePath } = await dialog.showSaveDialog(mainWindow, {
+      title: 'Export Transaction History',
+      defaultPath: `strategos-transactions-${Date.now()}.csv`,
+      filters: [{ name: 'CSV', extensions: ['csv'] }],
+    });
+
+    if (!filePath) return { exported: false, reason: 'CANCELLED' };
+
+    const fs = require('fs');
+    const headers = 'ID,Strategy,Type,Amount SOL,TxID,Timestamp\n';
+    const rows = ledger.map(e =>
+      `${e.id},${e.strategyId},${e.type},${e.amountSol},${e.txid || ''},${e.timestamp}`
+    ).join('\n');
+
+    fs.writeFileSync(filePath, headers + rows, 'utf8');
+    logEntry('INFO', `EXPORT: Transaction history saved to ${filePath}`, { filePath });
+    return { exported: true, filePath };
+  });
+
+  ipcMain.handle('report:sendNow', async () => {
+    const { agent, vault } = lastKnownBalances;
+    return await sendDailyReport({ agentBalance: agent, vaultBalance: vault, sessionPnl: 0, log: logEntry });
+  });
+
   ipcMain.handle('window:minimize', () => mainWindow && mainWindow.minimize());
   ipcMain.handle('window:maximize', () => {
     if (mainWindow) {
@@ -436,6 +477,26 @@ app.whenReady().then(() => {
   initWallet();
   registerIPC();
   createWindow();
+
+  // Phase 4: Start price feed — emits price updates to renderer
+  startPriceFeed(logEntry, (price) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('price:update', price);
+    }
+  });
+
+  // Phase 4: Start report scheduler
+  startReportScheduler({
+    getBalances: () => lastKnownBalances,
+    getSessionPnl: () => {
+      try {
+        const Store = require('electron-store');
+        const pnlStore = new Store({ name: 'strategos-pnl' });
+        return pnlStore.get('sessionNetSol', 0);
+      } catch (_) { return 0; }
+    },
+    log: logEntry,
+  });
 
   // Auto-start agent loop
   setTimeout(() => {

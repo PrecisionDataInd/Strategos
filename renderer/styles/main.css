@@ -602,3 +602,178 @@ html, body {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }
 }
+
+/* ==========================================================================
+   Phase 4: Price Badge
+   ========================================================================== */
+
+.price-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-surface);
+  border: 1px solid var(--bronze-dim);
+  border-radius: 4px;
+  padding: 3px 10px;
+  margin-right: 8px;
+  -webkit-app-region: no-drag;
+}
+
+.price-badge-label {
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+}
+
+.price-badge-value {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  color: var(--cyan-hot);
+}
+
+.price-badge-change {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+}
+
+/* ==========================================================================
+   Phase 4: USD Sub-labels
+   ========================================================================== */
+
+.card-usd {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+/* ==========================================================================
+   Phase 4: Portfolio Panel
+   ========================================================================== */
+
+.portfolio-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--bronze-dim);
+  border-radius: 4px;
+  padding: 16px 20px;
+  margin: 10px 0;
+}
+
+.panel-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.panel-title {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  color: var(--bronze-mid);
+  letter-spacing: 0.15em;
+}
+
+.panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.portfolio-total-usd {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.panel-action-btn {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--bronze-light);
+  background: transparent;
+  border: 1px solid var(--bronze-dim);
+  border-radius: 3px;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.panel-action-btn:hover { background: var(--bg-surface); }
+.panel-action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.portfolio-section-label {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.portfolio-table-wrap {
+  overflow-x: auto;
+}
+
+.portfolio-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+}
+
+.portfolio-table thead th {
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-align: left;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--bronze-dim);
+  font-weight: normal;
+}
+
+.portfolio-table tbody .portfolio-row td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(61,39,24,0.3);
+  color: var(--text-primary);
+}
+
+.portfolio-table tbody .portfolio-row:hover td {
+  background: var(--bg-surface);
+}
+
+.portfolio-empty-row td {
+  padding: 16px 12px;
+  color: var(--text-muted);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  text-align: center;
+}
+
+.col-mono { font-family: 'Share Tech Mono', monospace; }
+.col-bronze { color: var(--bronze-light); }
+.col-green { color: var(--gain-green); }
+.col-red { color: var(--loss-red); }
+.col-muted { color: var(--text-secondary); }
+.col-strategy { color: var(--text-primary); font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 0.05em; }
+.tx-id { color: var(--text-muted); font-size: 11px; }
+
+.tx-filter-input {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  background: var(--bg-surface);
+  border: 1px solid var(--bronze-dim);
+  border-radius: 3px;
+  color: var(--text-primary);
+  padding: 3px 8px;
+  width: 200px;
+}
+
+.tx-filter-input:focus {
+  outline: none;
+  border-color: var(--cyan-mid);
+}

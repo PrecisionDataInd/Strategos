@@ -46,6 +46,11 @@
         <span id="titlebar-subtitle">AUTONOMOUS FIELD AGENT v1.0</span>
       </div>
       <div id="titlebar-right">
+        <div class="price-badge">
+          <span class="price-badge-label">SOL</span>
+          <span class="price-badge-value" id="sol-price-display">$ &mdash;</span>
+          <span class="price-badge-change" id="sol-price-change"></span>
+        </div>
         <div class="titlebar-status">
           <span id="titlebar-status-dot" class="status-dot active"></span>
           <span id="titlebar-status-label" class="status-label">AGENT ACTIVE</span>
@@ -160,11 +165,11 @@
           <div class="metric-card shimmer-hover">
             <div class="card-label">Agent Wallet</div>
             <div class="card-value bronze" id="agent-balance">&#9678; 0.0000</div>
+            <div class="card-usd" id="agent-balance-usd">$ &mdash;</div>
             <div class="progress-bar">
               <div class="progress-fill" id="threshold-progress" style="width: 0%"></div>
             </div>
             <div class="card-sub">THRESHOLD: <span id="threshold-display">2.0</span> SOL &nbsp;&middot;&nbsp; RESERVE: <span id="reserve-display">0.25</span> SOL</div>
-            <div class="card-sub muted">$ &mdash;</div>
             <svg class="laurel-decoration" viewBox="0 0 40 10" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M2 8 Q8 2 14 6 Q10 4 8 2" stroke="var(--bronze-dark)" stroke-width="0.5" fill="none"/>
               <circle cx="14" cy="6" r="0.8" fill="var(--bronze-dark)"/>
@@ -177,6 +182,7 @@
           <div class="metric-card shimmer-hover">
             <div class="card-label">Vault &mdash; Cold Storage</div>
             <div class="card-value green" id="vault-balance">&#9678; 0.0000</div>
+            <div class="card-usd" id="vault-balance-usd">$ &mdash;</div>
             <div class="card-sub">TOTAL SWEPT THIS SESSION: &#9678; <span id="session-swept">0.0000</span></div>
             <div class="card-sub"><span class="badge dim">Agent has no spend access</span></div>
             <svg class="laurel-decoration" viewBox="0 0 40 10" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -191,6 +197,7 @@
           <div class="metric-card shimmer-hover">
             <div class="card-label">Session Gain/Loss</div>
             <div class="card-value muted" id="session-pnl">&#9678; 0.0000</div>
+            <div class="card-usd" id="pnl-usd">$ &mdash;</div>
             <div class="card-sub" id="session-pnl-pct">0.00%</div>
             <div class="card-sub muted">OPENED AT: &#9678; <span id="session-baseline">0.0000</span></div>
           </div>
@@ -268,6 +275,66 @@
               <div>&mdash;</div>
               <div>&mdash;</div>
             </div>
+          </div>
+        </div>
+
+        <!-- Portfolio Panel (Phase 4) -->
+        <div class="portfolio-panel stagger-in" id="portfolio-panel">
+          <div class="panel-header-row">
+            <span class="panel-title">PORTFOLIO POSITIONS</span>
+            <div class="panel-header-actions">
+              <span class="portfolio-total-usd" id="portfolio-total-usd">DEPLOYED: $ &mdash;</span>
+              <button class="panel-action-btn" id="btn-export-csv">EXPORT CSV &#8595;</button>
+              <button class="panel-action-btn" id="btn-send-report">SEND REPORT &#8599;</button>
+            </div>
+          </div>
+
+          <!-- Positions Table -->
+          <div class="portfolio-section-label">OPEN POSITIONS</div>
+          <div class="portfolio-table-wrap">
+            <table class="portfolio-table" id="positions-table">
+              <thead>
+                <tr>
+                  <th>STRATEGY</th>
+                  <th>ENTRY</th>
+                  <th>CURRENT VALUE</th>
+                  <th>USD VALUE</th>
+                  <th>UNREALIZED</th>
+                  <th>APY</th>
+                  <th>AGE</th>
+                  <th>STATUS</th>
+                </tr>
+              </thead>
+              <tbody id="positions-tbody">
+                <tr class="portfolio-empty-row">
+                  <td colspan="8">Loading positions...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Transaction History -->
+          <div class="portfolio-section-label" style="margin-top: 16px;">
+            TRANSACTION HISTORY
+            <input type="text" id="tx-filter" placeholder="Filter by strategy or type..." class="tx-filter-input">
+          </div>
+          <div class="portfolio-table-wrap" style="max-height: 200px; overflow-y: auto;">
+            <table class="portfolio-table" id="transactions-table">
+              <thead>
+                <tr>
+                  <th>TIME</th>
+                  <th>STRATEGY</th>
+                  <th>TYPE</th>
+                  <th>AMOUNT</th>
+                  <th>TXID</th>
+                </tr>
+              </thead>
+              <tbody id="transactions-tbody">
+                <tr class="portfolio-empty-row">
+                  <td colspan="5">No transactions recorded yet</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 

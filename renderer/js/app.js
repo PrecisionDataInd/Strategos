@@ -31,6 +31,9 @@
   // Phase 3b: Risk manager state
   let latestRiskStatus = { drawdownPct: 0, sessionHigh: 0, shouldHalt: false };
 
+  // Phase 4: Cached price
+  let cachedSolPrice = null;
+
   // ---------------------------------------------------------------------------
   // DOM refs
   // ---------------------------------------------------------------------------
@@ -102,6 +105,30 @@
     window.strategos.on('harvest:complete', handleHarvestComplete);
     window.strategos.on('risk:status', handleRiskStatus);
     window.strategos.on('nova:actionResult', handleNovaActionResult);
+
+    // Phase 4: Price feed listener
+    window.strategos.price.onUpdate(function (price) {
+      updatePriceDisplay(price);
+      updateUSDValues(price);
+    });
+
+    // Phase 4: Portfolio buttons
+    var btnExportCSV = document.getElementById('btn-export-csv');
+    if (btnExportCSV) {
+      btnExportCSV.addEventListener('click', handleExportCSV);
+    }
+    var btnSendReport = document.getElementById('btn-send-report');
+    if (btnSendReport) {
+      btnSendReport.addEventListener('click', handleSendReport);
+    }
+    var txFilter = document.getElementById('tx-filter');
+    if (txFilter) {
+      txFilter.addEventListener('input', handleTxFilter);
+    }
+
+    // Phase 4: Init price + portfolio
+    initPriceDisplay();
+    loadPortfolio();
 
     // Get initial agent status
     try {
@@ -283,6 +310,15 @@
     if (data.strategyResults && data.strategyResults.length > 0) {
       updateStrategyMatrix(data.strategyResults);
     }
+
+    // Phase 4: Update USD values on tick and refresh portfolio
+    if (data.price) {
+      updatePriceDisplay(data.price);
+      updateUSDValues(data.price);
+    } else if (cachedSolPrice) {
+      updateUSDValues(cachedSolPrice);
+    }
+    loadPortfolio();
 
     // Trigger radar ping
     triggerRadarPing();
@@ -552,6 +588,168 @@
     banner.className = 'error-banner ' + type;
     banner.textContent = message;
     errorBanners.appendChild(banner);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phase 4: Price Display
+  // ---------------------------------------------------------------------------
+  async function initPriceDisplay() {
+    try {
+      var price = await window.strategos.price.get();
+      if (price && price.usd) {
+        updatePriceDisplay(price);
+        updateUSDValues(price);
+      }
+    } catch (e) {
+      console.error('Failed to init price display:', e);
+    }
+  }
+
+  function updatePriceDisplay(price) {
+    if (!price) return;
+    cachedSolPrice = price;
+    var priceEl = document.getElementById('sol-price-display');
+    var changeEl = document.getElementById('sol-price-change');
+    if (priceEl && price.usd) priceEl.textContent = '$' + price.usd.toFixed(2);
+    if (changeEl && price.change24h !== null && price.change24h !== undefined) {
+      var pct = price.change24h.toFixed(2);
+      changeEl.textContent = (price.change24h >= 0 ? '+' : '') + pct + '%';
+      changeEl.style.color = price.change24h >= 0 ? 'var(--gain-green)' : 'var(--loss-red)';
+    }
+  }
+
+  function updateUSDValues(price) {
+    if (!price || !price.usd) return;
+    var solPrice = price.usd;
+
+    var agentEl = document.getElementById('agent-balance');
+    var vaultEl = document.getElementById('vault-balance');
+    var pnlEl = document.getElementById('session-pnl');
+
+    var agentBal = agentEl ? parseFloat(agentEl.textContent.replace(/[^\d.\-]/g, '') || '0') : 0;
+    var vaultBal = vaultEl ? parseFloat(vaultEl.textContent.replace(/[^\d.\-]/g, '') || '0') : 0;
+    var pnlVal = pnlEl ? parseFloat(pnlEl.textContent.replace(/[^\d.\-]/g, '') || '0') : 0;
+
+    var agentUsd = document.getElementById('agent-balance-usd');
+    var vaultUsd = document.getElementById('vault-balance-usd');
+    var pnlUsd = document.getElementById('pnl-usd');
+
+    if (agentUsd) agentUsd.textContent = '$' + (agentBal * solPrice).toFixed(2);
+    if (vaultUsd) vaultUsd.textContent = '$' + (vaultBal * solPrice).toFixed(2);
+    if (pnlUsd) pnlUsd.textContent = '$' + (pnlVal * solPrice).toFixed(2);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phase 4: Portfolio Panel
+  // ---------------------------------------------------------------------------
+  async function loadPortfolio() {
+    try {
+      var summary = await window.strategos.portfolio.getSummary();
+      renderPositions(summary.positions);
+
+      var totalUsdEl = document.getElementById('portfolio-total-usd');
+      if (totalUsdEl) totalUsdEl.textContent = 'DEPLOYED: $' + summary.totalDeployedUsd.toFixed(2);
+
+      var transactions = await window.strategos.portfolio.getTransactions();
+      renderTransactions(transactions);
+    } catch (e) {
+      console.error('Failed to load portfolio:', e);
+    }
+  }
+
+  function renderPositions(positions) {
+    var tbody = document.getElementById('positions-tbody');
+    if (!tbody) return;
+
+    if (!positions || positions.length === 0) {
+      tbody.innerHTML = '<tr class="portfolio-empty-row"><td colspan="8">No open positions</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = positions.map(function (pos) {
+      var unrealizedClass = pos.unrealizedSol >= 0 ? 'col-green' : 'col-red';
+      var unrealizedSign = pos.unrealizedSol >= 0 ? '+' : '';
+      var statusBadge = pos.tracked
+        ? '<span class="badge tracked">TRACKED</span>'
+        : '<span class="badge live">ACTIVE</span>';
+
+      return '<tr class="portfolio-row">'
+        + '<td class="col-strategy">' + pos.strategyName + '</td>'
+        + '<td class="col-mono">\u25CE ' + pos.entryValueSol.toFixed(4) + '</td>'
+        + '<td class="col-mono col-bronze">\u25CE ' + pos.currentValueSol.toFixed(4) + '</td>'
+        + '<td class="col-mono">$' + pos.currentValueUsd.toFixed(2) + '</td>'
+        + '<td class="col-mono ' + unrealizedClass + '">' + unrealizedSign + '\u25CE ' + pos.unrealizedSol.toFixed(6) + '</td>'
+        + '<td class="col-mono col-muted">' + pos.apy + '</td>'
+        + '<td class="col-mono col-muted">' + pos.daysOpen + 'd</td>'
+        + '<td>' + statusBadge + '</td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  function renderTransactions(transactions) {
+    var tbody = document.getElementById('transactions-tbody');
+    if (!tbody) return;
+
+    if (!transactions || transactions.length === 0) {
+      tbody.innerHTML = '<tr class="portfolio-empty-row"><td colspan="5">No transactions recorded yet</td></tr>';
+      return;
+    }
+
+    // Show newest first, max 100
+    var recent = transactions.slice().reverse().slice(0, 100);
+
+    tbody.innerHTML = recent.map(function (tx) {
+      var txidDisplay = tx.txid ? tx.txid.slice(0, 12) + '...' : '\u2014';
+      return '<tr class="portfolio-row">'
+        + '<td class="col-mono col-muted">' + new Date(tx.timestamp).toLocaleString() + '</td>'
+        + '<td class="col-strategy">' + (tx.strategyId || '') + '</td>'
+        + '<td class="col-mono">' + (tx.type || '') + '</td>'
+        + '<td class="col-mono col-bronze">\u25CE ' + parseFloat(tx.amountSol || 0).toFixed(6) + '</td>'
+        + '<td class="col-mono col-muted tx-id">' + txidDisplay + '</td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  async function handleTxFilter(e) {
+    var filter = e.target.value.toLowerCase();
+    try {
+      var transactions = await window.strategos.portfolio.getTransactions();
+      var filtered = transactions.filter(function (tx) {
+        return (tx.strategyId && tx.strategyId.toLowerCase().indexOf(filter) !== -1)
+          || (tx.type && tx.type.toLowerCase().indexOf(filter) !== -1);
+      });
+      renderTransactions(filtered);
+    } catch (err) {
+      console.error('Filter error:', err);
+    }
+  }
+
+  async function handleExportCSV() {
+    var btn = document.getElementById('btn-export-csv');
+    try {
+      var result = await window.strategos.portfolio.exportCSV();
+      if (result.exported) {
+        btn.textContent = 'EXPORTED \u2713';
+        setTimeout(function () { btn.textContent = 'EXPORT CSV \u2193'; }, 2000);
+      }
+    } catch (e) {
+      console.error('Export error:', e);
+    }
+  }
+
+  async function handleSendReport() {
+    var btn = document.getElementById('btn-send-report');
+    btn.textContent = 'SENDING...';
+    btn.disabled = true;
+    try {
+      var result = await window.strategos.report.sendNow();
+      btn.textContent = result.sent ? 'SENT \u2713' : 'FAILED';
+    } catch (e) {
+      btn.textContent = 'FAILED';
+      console.error('Report error:', e);
+    }
+    btn.disabled = false;
+    setTimeout(function () { btn.textContent = 'SEND REPORT \u2197'; }, 3000);
   }
 
   // ---------------------------------------------------------------------------

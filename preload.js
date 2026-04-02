@@ -47,13 +47,25 @@ contextBridge.exposeInMainWorld('strategos', {
     getStatus: () => ipcRenderer.invoke('risk:getStatus'),
     resetSession: () => ipcRenderer.invoke('risk:resetSession'),
   },
+  price: {
+    get: () => ipcRenderer.invoke('price:get'),
+    onUpdate: (callback) => ipcRenderer.on('price:update', (_, data) => callback(data)),
+  },
+  portfolio: {
+    getSummary: () => ipcRenderer.invoke('portfolio:getSummary'),
+    getTransactions: () => ipcRenderer.invoke('portfolio:getTransactions'),
+    exportCSV: () => ipcRenderer.invoke('portfolio:exportCSV'),
+  },
+  report: {
+    sendNow: () => ipcRenderer.invoke('report:sendNow'),
+  },
   window: {
     minimize: () => ipcRenderer.invoke('window:minimize'),
     maximize: () => ipcRenderer.invoke('window:maximize'),
     close: () => ipcRenderer.invoke('window:close'),
   },
   on: (channel, callback) => {
-    const validChannels = ['agent:tick', 'log:entry', 'nova:brief', 'agent:halted', 'harvest:complete', 'nova:actionResult', 'risk:status'];
+    const validChannels = ['agent:tick', 'log:entry', 'nova:brief', 'agent:halted', 'harvest:complete', 'nova:actionResult', 'risk:status', 'price:update'];
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, (_event, data) => callback(data));
     }
