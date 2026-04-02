@@ -12,15 +12,50 @@ try {
 }
 
 const { PublicKey } = require('@solana/web3.js');
+const { savePosition, getOpenPositions, updatePosition } = require('../positions');
 
 async function executeStaking({ connection, agentKeypair, amountSol, log }) {
   if (!marinadeAvailable) {
-    log('WARN', 'STAKING SKIPPED: @marinade.finance/marinade-ts-sdk not installed — run npm install --legacy-peer-deps', {});
-    return { success: false, reason: 'SDK_NOT_INSTALLED', strategy: 'marinade-staking' };
+    log('WARN', 'STAKING SKIPPED: marinade-ts-sdk not available', {});
+    return { success: false, reason: 'SDK_NOT_INSTALLED', soft: true };
   }
 
   if (amountSol < 0.1) return { success: false, reason: 'AMOUNT_TOO_SMALL' };
 
+  // CHECK FOR EXISTING POSITION — do not stake again if already staked
+  const existingPositions = getOpenPositions('staking');
+  if (existingPositions.length > 0) {
+    const pos = existingPositions[0];
+
+    // Fetch current mSOL balance to track growth
+    try {
+      const { getAssociatedTokenAddress } = require('@solana/spl-token');
+      const MSOL_MINT = new PublicKey('mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So');
+      const msolATA = await getAssociatedTokenAddress(MSOL_MINT, agentKeypair.publicKey);
+      const msolBalance = await connection.getTokenAccountBalance(msolATA);
+      const currentMsol = parseFloat(msolBalance.value.uiAmount || 0);
+
+      updatePosition('staking', pos.id, {
+        currentMsol,
+        lastChecked: new Date().toISOString(),
+      });
+
+      log('INFO', `STAKING: position active — ${currentMsol.toFixed(6)} mSOL held`, { currentMsol });
+    } catch (err) {
+      log('INFO', `STAKING: position active — ${pos.amountSol.toFixed(4)} SOL staked`, { amount: pos.amountSol });
+    }
+
+    return {
+      success: true,
+      reason: 'POSITION_EXISTS',
+      positions: existingPositions,
+      strategy: 'marinade-staking',
+      apy: '~8%',
+      _displayStatus: 'ACTIVE',
+    };
+  }
+
+  // NO EXISTING POSITION — stake for the first time
   try {
     const config = new MarinadeConfig({
       connection,
@@ -45,8 +80,25 @@ async function executeStaking({ connection, agentKeypair, amountSol, log }) {
     });
     await connection.confirmTransaction(txid, 'confirmed');
 
+    // SAVE POSITION so future ticks see it and skip re-staking
+    const position = {
+      amountSol,
+      txid,
+      status: 'OPEN',
+      apy: '~8%',
+      openedAt: new Date().toISOString(),
+    };
+    savePosition('staking', position);
+
     log('INFO', `STAKING CONFIRMED: ${amountSol.toFixed(4)} SOL staked | txid ${txid}`, { txid });
-    return { success: true, txid, amountSol, strategy: 'marinade-staking', apy: '~8%' };
+    return {
+      success: true,
+      txid,
+      amountSol,
+      strategy: 'marinade-staking',
+      apy: '~8%',
+      _displayStatus: 'ACTIVE',
+    };
 
   } catch (err) {
     log('ERROR', `Staking failed: ${err.message}`, { error: err.message });

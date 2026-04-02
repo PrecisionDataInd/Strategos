@@ -1,6 +1,6 @@
 const { startHarvestTimer, stopHarvestTimer } = require('./harvest');
-const { getPositions } = require('./positions');
-const { initSession, recordBalance, checkDrawdown } = require('./risk-manager');
+const { getPositions, getOpenPositions, savePosition } = require('./positions');
+const { initSession, recordBalance, checkDrawdown, resetSession } = require('./risk-manager');
 
 let loopInterval = null;
 let running = false;
@@ -16,13 +16,56 @@ function getAgentStatus() {
   };
 }
 
-function startAgentLoop(dependencies) {
+async function startAgentLoop(dependencies) {
   if (running) return;
   deps = dependencies;
   running = true;
 
   const cfg = deps.getConfig();
   const intervalMs = (cfg.checkIntervalSeconds || 120) * 1000;
+
+  const logEntry = (level, message, meta) => {
+    deps.addLogEntry({ timestamp: Date.now(), level, message });
+  };
+
+  // Seed staking position if none recorded but mSOL exists in wallet
+  if (deps.connection && deps.agentKeypair) {
+    try {
+      const { getAssociatedTokenAddress } = require('@solana/spl-token');
+      const { PublicKey } = require('@solana/web3.js');
+      const MSOL_MINT = new PublicKey('mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So');
+      const msolATA = await getAssociatedTokenAddress(MSOL_MINT, deps.agentKeypair.publicKey);
+
+      const msolBalance = await deps.connection.getTokenAccountBalance(msolATA);
+      const msolAmount = parseFloat(msolBalance.value.uiAmount || 0);
+
+      const existingStaking = getOpenPositions('staking');
+
+      if (msolAmount > 0 && existingStaking.length === 0) {
+        savePosition('staking', {
+          amountSol: msolAmount,
+          txid: 'SEEDED-ON-STARTUP',
+          status: 'OPEN',
+          apy: '~8%',
+          currentMsol: msolAmount,
+          note: 'Position seeded from existing mSOL balance',
+          openedAt: new Date().toISOString(),
+        });
+        logEntry('INFO', `STARTUP: seeded staking position from ${msolAmount.toFixed(6)} existing mSOL`);
+      }
+    } catch (err) {
+      logEntry('WARN', `Could not seed existing positions: ${err.message}`);
+    }
+
+    // Reset risk manager session high to current balance
+    try {
+      const currentBalance = await deps.connection.getBalance(deps.agentKeypair.publicKey) / 1e9;
+      resetSession(currentBalance);
+      logEntry('INFO', `RISK MANAGER: session reset — new baseline ${currentBalance.toFixed(4)} SOL`);
+    } catch (err) {
+      logEntry('WARN', `Could not reset risk session: ${err.message}`);
+    }
+  }
 
   deps.addLogEntry({
     timestamp: Date.now(),

@@ -33,6 +33,16 @@ async function executeGrid({ connection, agentKeypair, amountSol, config, log })
     const priceData = await priceRes.json();
     currentPrice = priceData?.data?.SOL?.price;
   } catch (err) {
+    if (
+      err.message === 'JUPITER_TIMEOUT' ||
+      err.message.includes('ENOTFOUND') ||
+      err.message.includes('ECONNREFUSED') ||
+      err.message.includes('fetch failed') ||
+      err.message.includes('network')
+    ) {
+      log('WARN', `GRID SKIPPED: Jupiter unreachable — ${err.message.split('\n')[0]}`, {});
+      return { success: false, reason: 'API_UNREACHABLE', soft: true, _displayStatus: 'STANDBY' };
+    }
     log('WARN', `GRID SKIPPED: Price fetch failed — ${err.message}`, { reason: err.message });
     return { success: false, reason: 'PRICE_FETCH_FAILED' };
   }
@@ -94,7 +104,17 @@ async function executeGrid({ connection, agentKeypair, amountSol, config, log })
       }
 
     } catch (err) {
-      log('WARN', `GRID: order placement failed at level ${i}: ${err.message}`, { level: i, error: err.message });
+      if (
+        err.message === 'JUPITER_TIMEOUT' ||
+        err.message.includes('ENOTFOUND') ||
+        err.message.includes('ECONNREFUSED') ||
+        err.message.includes('fetch failed') ||
+        err.message.includes('network')
+      ) {
+        log('WARN', `GRID SKIPPED: Jupiter unreachable — ${err.message.split('\n')[0]}`, {});
+        return { success: false, reason: 'API_UNREACHABLE', soft: true, _displayStatus: 'STANDBY' };
+      }
+      log('ERROR', `GRID: order placement failed at level ${i}: ${err.message}`, { level: i, error: err.message });
     }
 
     // Small delay between orders to avoid rate limiting

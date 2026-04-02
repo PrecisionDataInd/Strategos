@@ -74,13 +74,14 @@ async function executeArbitrage({ connection, agentKeypair, amountSol, config, l
       err.message === 'JUPITER_TIMEOUT' ||
       err.message.includes('ENOTFOUND') ||
       err.message.includes('ECONNREFUSED') ||
-      err.message.includes('fetch failed')
+      err.message.includes('fetch failed') ||
+      err.message.includes('network')
     ) {
-      log('WARN', `ARB SKIPPED: Jupiter unreachable — ${err.message}`, { reason: err.message });
-      return { success: false, reason: 'API_UNREACHABLE', soft: true };
+      log('WARN', `ARB SKIPPED: Jupiter unreachable — ${err.message.split('\n')[0]}`, {});
+      return { success: false, reason: 'API_UNREACHABLE', soft: true, _displayStatus: 'STANDBY' };
     }
-    log('ERROR', `ARB TX FAILED: ${err.message}`, { error: err.message });
-    return { success: false, error: err.message };
+    log('ERROR', `ARB FAILED: ${err.message}`, { error: err.message });
+    return { success: false, error: err.message, _displayStatus: 'ERROR' };
   }
 }
 
