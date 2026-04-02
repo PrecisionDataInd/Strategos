@@ -20,9 +20,9 @@ async function executeArbitrage({ connection, agentKeypair, amountSol, config, l
     );
     const quote = await quoteResponse.json();
 
-    if (!quote || quote.error) {
-      log('WARN', 'Jupiter quote failed or unavailable', { error: quote?.error });
-      return { success: false, reason: 'QUOTE_FAILED' };
+    if (!quote || quote.error || quote.errorCode) {
+      log('WARN', `ARB SKIPPED: Jupiter quote error — ${quote?.error || quote?.errorCode}`, {});
+      return { success: false, reason: 'QUOTE_ERROR', soft: true };
     }
 
     // Step 2: Check if profit opportunity exists
@@ -54,7 +54,18 @@ async function executeArbitrage({ connection, agentKeypair, amountSol, config, l
         prioritizationFeeLamports: 'auto',
       }),
     });
-    const { swapTransaction } = await swapResponse.json();
+    const swapData = await swapResponse.json();
+    const swapTransaction = swapData.swapTransaction ||
+                            swapData.transaction ||
+                            swapData.tx ||
+                            swapData.serializedTransaction;
+
+    if (!swapTransaction) {
+      log('WARN', 'ARB SKIPPED: No transaction in Jupiter swap response', {
+        fields: Object.keys(swapData)
+      });
+      return { success: false, reason: 'NO_SWAP_TRANSACTION', soft: true };
+    }
 
     const swapTxBuf = Buffer.from(swapTransaction, 'base64');
     const transaction = VersionedTransaction.deserialize(swapTxBuf);
