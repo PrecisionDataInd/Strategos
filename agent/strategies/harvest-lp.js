@@ -1,9 +1,27 @@
-const { WhirlpoolContext, buildWhirlpoolClient, ORCA_WHIRLPOOL_PROGRAM_ID } = require('@orca-so/whirlpools-sdk');
-const { AnchorProvider } = require('@coral-xyz/anchor');
+let WhirlpoolContext, buildWhirlpoolClient, ORCA_WHIRLPOOL_PROGRAM_ID;
+let AnchorProvider;
+let orcaAvailable = false;
+
+try {
+  const orcaSdk = require('@orca-so/whirlpools-sdk');
+  WhirlpoolContext = orcaSdk.WhirlpoolContext;
+  buildWhirlpoolClient = orcaSdk.buildWhirlpoolClient;
+  ORCA_WHIRLPOOL_PROGRAM_ID = orcaSdk.ORCA_WHIRLPOOL_PROGRAM_ID;
+  AnchorProvider = require('@coral-xyz/anchor').AnchorProvider;
+  orcaAvailable = true;
+} catch (e) {
+  // SDK not installed — harvest-lp will skip gracefully
+}
+
 const { PublicKey } = require('@solana/web3.js');
 const { getOpenPositions, updatePosition } = require('../positions');
 
 async function harvestLP({ connection, agentKeypair, log }) {
+  if (!orcaAvailable) {
+    log('WARN', 'LP HARVEST SKIPPED: @orca-so/whirlpools-sdk not installed', {});
+    return { harvested: false, reason: 'SDK_NOT_INSTALLED' };
+  }
+
   const openPositions = getOpenPositions('liquidity');
   if (openPositions.length === 0) return { harvested: false, reason: 'NO_OPEN_POSITIONS' };
 

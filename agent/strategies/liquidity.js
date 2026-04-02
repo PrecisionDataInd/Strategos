@@ -1,14 +1,39 @@
-const { WhirlpoolContext, buildWhirlpoolClient, ORCA_WHIRLPOOL_PROGRAM_ID, PriceMath, TickUtil } = require('@orca-so/whirlpools-sdk');
-const { AnchorProvider } = require('@coral-xyz/anchor');
+let WhirlpoolContext, buildWhirlpoolClient, ORCA_WHIRLPOOL_PROGRAM_ID;
+let PriceMath, TickUtil, DecimalUtil, Percentage;
+let AnchorProvider;
+let Decimal;
+let orcaAvailable = false;
+
+try {
+  const orcaSdk = require('@orca-so/whirlpools-sdk');
+  WhirlpoolContext = orcaSdk.WhirlpoolContext;
+  buildWhirlpoolClient = orcaSdk.buildWhirlpoolClient;
+  ORCA_WHIRLPOOL_PROGRAM_ID = orcaSdk.ORCA_WHIRLPOOL_PROGRAM_ID;
+  PriceMath = orcaSdk.PriceMath;
+  TickUtil = orcaSdk.TickUtil;
+  AnchorProvider = require('@coral-xyz/anchor').AnchorProvider;
+  const commonSdk = require('@orca-so/common-sdk');
+  DecimalUtil = commonSdk.DecimalUtil;
+  Percentage = commonSdk.Percentage;
+  Decimal = require('decimal.js');
+  orcaAvailable = true;
+} catch (e) {
+  // SDK not installed
+}
+
 const { PublicKey } = require('@solana/web3.js');
-const { DecimalUtil, Percentage } = require('@orca-so/common-sdk');
-const Decimal = require('decimal.js');
 const { savePosition, getOpenPositions } = require('../positions');
 
 // SOL/USDC Whirlpool on mainnet (0.05% fee tier)
-const SOL_USDC_WHIRLPOOL = new PublicKey('HJPjoWUrhoZzkNfRpHuieeFk9WcZWjwy6PBjZ81ngndJ');
+let SOL_USDC_WHIRLPOOL;
+try { SOL_USDC_WHIRLPOOL = new PublicKey('HJPjoWUrhoZzkNfRpHuieeFk9WcZWjwy6PBjZ81ngndJ'); } catch (e) {}
 
 async function executeLiquidity({ connection, agentKeypair, amountSol, log }) {
+  if (!orcaAvailable) {
+    log('WARN', 'LP SKIPPED: @orca-so/whirlpools-sdk not installed — run npm install --legacy-peer-deps', {});
+    return { success: false, reason: 'SDK_NOT_INSTALLED', strategy: 'orca-clmm' };
+  }
+
   if (amountSol < 0.5) return { success: false, reason: 'AMOUNT_TOO_SMALL' };
 
   // Skip if already have an open LP position

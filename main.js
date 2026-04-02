@@ -13,6 +13,56 @@ const { runStrategies, STRATEGIES } = require('./agent/strategies/index');
 const { getPositions } = require('./agent/positions');
 const { runHarvest } = require('./agent/harvest');
 
+// ---------------------------------------------------------------------------
+// Dependency check — log missing packages without crashing
+// ---------------------------------------------------------------------------
+function checkDependencies() {
+  const required = [
+    '@solana/web3.js',
+    '@anthropic-ai/sdk',
+    'electron-store',
+    'dotenv',
+  ];
+
+  const optional = [
+    '@marinade.finance/marinade-ts-sdk',
+    '@orca-so/whirlpools-sdk',
+    '@orca-so/common-sdk',
+    '@coral-xyz/anchor',
+    'decimal.js',
+  ];
+
+  const missing = [];
+
+  for (const pkg of required) {
+    try { require(pkg); } catch (e) { missing.push({ pkg, required: true }); }
+  }
+
+  for (const pkg of optional) {
+    try { require(pkg); } catch (e) { missing.push({ pkg, required: false }); }
+  }
+
+  if (missing.length > 0) {
+    const requiredMissing = missing.filter(m => m.required);
+    const optionalMissing = missing.filter(m => !m.required);
+
+    if (optionalMissing.length > 0) {
+      console.warn('STRATEGOS: Optional packages not installed (strategies will degrade gracefully):',
+        optionalMissing.map(m => m.pkg).join(', '));
+      console.warn('Run: npm install --legacy-peer-deps');
+    }
+
+    if (requiredMissing.length > 0) {
+      console.error('STRATEGOS: Required packages missing — app may not function:',
+        requiredMissing.map(m => m.pkg).join(', '));
+    }
+  }
+
+  return missing;
+}
+
+const missingDeps = checkDependencies();
+
 const store = new Store();
 let mainWindow = null;
 let connection = null;

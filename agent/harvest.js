@@ -1,6 +1,8 @@
-const { harvestLP } = require('./strategies/harvest-lp');
-const { harvestLending } = require('./strategies/harvest-lending');
-const { harvestStaking } = require('./strategies/harvest-staking');
+let harvestLP, harvestLending, harvestStaking;
+
+try { ({ harvestLP } = require('./strategies/harvest-lp')); } catch (e) { harvestLP = async () => ({ harvested: false, reason: 'MODULE_LOAD_FAILED' }); }
+try { ({ harvestLending } = require('./strategies/harvest-lending')); } catch (e) { harvestLending = async () => ({ harvested: false, reason: 'MODULE_LOAD_FAILED' }); }
+try { ({ harvestStaking } = require('./strategies/harvest-staking')); } catch (e) { harvestStaking = async () => ({ harvested: false, reason: 'MODULE_LOAD_FAILED' }); }
 
 const HARVEST_INTERVAL_MS = 6 * 60 * 60 * 1000; // every 6 hours
 let harvestTimer = null;

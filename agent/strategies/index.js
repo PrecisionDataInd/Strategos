@@ -1,8 +1,21 @@
-const { executeStaking } = require('./staking');
-const { executeLending } = require('./lending');
-const { executeLiquidity } = require('./liquidity');
-const { executeArbitrage } = require('./arbitrage');
-const { executeGrid } = require('./grid');
+function safeRequire(path, fallbackFnName) {
+  try {
+    return require(path);
+  } catch (e) {
+    const fallback = {};
+    fallback[fallbackFnName] = async ({ log }) => {
+      log('WARN', `Strategy module ${path} failed to load: ${e.message}`, {});
+      return { success: false, reason: 'MODULE_LOAD_FAILED' };
+    };
+    return fallback;
+  }
+}
+
+const { executeStaking }   = safeRequire('./staking',   'executeStaking');
+const { executeLending }   = safeRequire('./lending',    'executeLending');
+const { executeLiquidity } = safeRequire('./liquidity',  'executeLiquidity');
+const { executeArbitrage } = safeRequire('./arbitrage',  'executeArbitrage');
+const { executeGrid }      = safeRequire('./grid',       'executeGrid');
 const { getPositions, getOpenPositions } = require('../positions');
 
 // Strategy registry with risk tiers
