@@ -1,8 +1,8 @@
 const { PublicKey, VersionedTransaction, Connection } = require('@solana/web3.js');
 const fetch = require('cross-fetch');
 
-const JUPITER_QUOTE_API = 'https://quote-api.jup.ag/v6/quote';
-const JUPITER_SWAP_API = 'https://quote-api.jup.ag/v6/swap';
+const JUPITER_QUOTE_API = 'https://api.jup.ag/swap/v1/quote';
+const JUPITER_SWAP_API = 'https://api.jup.ag/swap/v1/swap';
 
 // Token mints
 const SOL_MINT = 'So11111111111111111111111111111111111111112';

@@ -4,7 +4,7 @@ const { getOpenPositions, savePosition, closePosition } = require('../positions'
 const JUPITER_LIMIT_API = 'https://jup.ag/api/limit/v1';
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
-const JUPITER_PRICE_API = 'https://price.jup.ag/v6/price?ids=SOL';
+const JUPITER_PRICE_API = 'https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112';
 const FETCH_TIMEOUT_MS = 8000;
 
 function fetchWithTimeout(url, options = {}) {
@@ -31,7 +31,7 @@ async function executeGrid({ connection, agentKeypair, amountSol, config, log })
   try {
     const priceRes = await fetchWithTimeout(JUPITER_PRICE_API);
     const priceData = await priceRes.json();
-    currentPrice = priceData?.data?.SOL?.price;
+    currentPrice = priceData?.data?.['So11111111111111111111111111111111111111112']?.price;
   } catch (err) {
     if (
       err.message === 'JUPITER_TIMEOUT' ||
