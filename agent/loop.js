@@ -1,5 +1,6 @@
 const { startHarvestTimer, stopHarvestTimer } = require('./harvest');
 const { getPositions } = require('./positions');
+const { initSession, recordBalance, checkDrawdown } = require('./risk-manager');
 
 let loopInterval = null;
 let running = false;
@@ -68,6 +69,25 @@ async function runTick() {
   try {
     const agentBalance = await deps.getAgentBalance();
     const vaultBalance = await deps.getVaultBalance();
+
+    // Phase 3b: Risk manager — init session, record balance, check drawdown
+    initSession(agentBalance);
+    recordBalance(agentBalance);
+
+    const logFnRisk = (level, message) => {
+      deps.addLogEntry({ timestamp: Date.now(), level, message });
+    };
+    const riskCheck = checkDrawdown(agentBalance, logFnRisk);
+
+    if (riskCheck.shouldHalt) {
+      deps.emitToRenderer('agent:halted', { reason: 'DRAWDOWN_EXCEEDED', ...riskCheck });
+      deps.emitToRenderer('risk:status', riskCheck);
+      stopAgentLoop();
+      return;
+    }
+
+    // Emit risk status to renderer each tick
+    deps.emitToRenderer('risk:status', riskCheck);
 
     const sweepResult = await deps.checkAndSweep();
 

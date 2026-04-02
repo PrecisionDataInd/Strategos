@@ -384,3 +384,206 @@ html, body {
   color: var(--loss-red);
   border-color: var(--loss-red);
 }
+
+/* ==========================================================================
+   Phase 3b: Risk Monitor Indicator
+   ========================================================================== */
+
+.risk-indicator {
+  background: rgba(30, 27, 32, 0.6);
+  border: 1px solid var(--bronze-dim);
+  border-radius: 3px;
+  padding: 10px 12px;
+}
+
+.risk-indicator-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.risk-indicator-row:last-child {
+  margin-bottom: 0;
+}
+
+.risk-indicator-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+}
+
+.risk-indicator-value {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: var(--text-secondary);
+  letter-spacing: 0.05em;
+}
+
+.risk-drawdown-value {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gain-green);
+  letter-spacing: 0.05em;
+}
+
+.risk-status-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
+.risk-bar {
+  width: 100%;
+  height: 4px;
+  background: var(--bg-deep);
+  border-radius: 2px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.risk-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.6s ease, background 0.3s ease;
+}
+
+.risk-bar-fill.normal {
+  background: var(--gain-green);
+}
+
+.risk-bar-fill.warning {
+  background: var(--warn-amber);
+}
+
+.risk-bar-fill.critical {
+  background: var(--loss-red);
+  animation: riskPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes riskPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ==========================================================================
+   Phase 3b: NOVA Execute Buttons & Action Cards
+   ========================================================================== */
+
+.nova-actions-container {
+  margin-top: 16px;
+  border-top: 1px solid var(--bronze-dim);
+  padding-top: 12px;
+}
+
+.nova-actions-header {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  color: var(--cyan-mid);
+  margin-bottom: 10px;
+}
+
+.nova-action-card {
+  background: rgba(0, 68, 85, 0.12);
+  border: 1px solid var(--cyan-dim);
+  border-radius: 3px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  transition: border-color 0.2s;
+}
+
+.nova-action-card:hover {
+  border-color: var(--cyan-mid);
+}
+
+.nova-action-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.nova-action-codename {
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cyan-hot);
+  letter-spacing: 0.1em;
+}
+
+.nova-action-strategy {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  padding: 2px 6px;
+}
+
+.nova-action-reason {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
+.nova-action-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nova-action-pct {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+}
+
+.btn-nova-execute {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  padding: 4px 14px;
+  background: transparent;
+  border: 1px solid var(--cyan-mid);
+  color: var(--cyan-hot);
+  cursor: pointer;
+  border-radius: 2px;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
+}
+
+.btn-nova-execute:hover {
+  background: rgba(0, 238, 255, 0.1);
+  border-color: var(--cyan-hot);
+  box-shadow: 0 0 8px rgba(0, 238, 255, 0.2);
+}
+
+.btn-nova-execute:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-nova-execute.executing {
+  color: var(--warn-amber);
+  border-color: var(--warn-amber);
+  animation: executePulse 1s ease-in-out infinite;
+}
+
+.btn-nova-execute.executed {
+  color: var(--gain-green);
+  border-color: var(--gain-green);
+  background: rgba(111, 212, 145, 0.1);
+}
+
+.btn-nova-execute.failed {
+  color: var(--loss-red);
+  border-color: var(--loss-red);
+}
+
+@keyframes executePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}

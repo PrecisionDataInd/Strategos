@@ -40,6 +40,12 @@ contextBridge.exposeInMainWorld('strategos', {
   nova: {
     getBrief: () => ipcRenderer.invoke('nova:getBrief'),
     requestNewBrief: () => ipcRenderer.invoke('nova:requestNewBrief'),
+    getActions: () => ipcRenderer.invoke('nova:getActions'),
+    executeAction: (action) => ipcRenderer.invoke('nova:executeAction', action),
+  },
+  risk: {
+    getStatus: () => ipcRenderer.invoke('risk:getStatus'),
+    resetSession: () => ipcRenderer.invoke('risk:resetSession'),
   },
   window: {
     minimize: () => ipcRenderer.invoke('window:minimize'),
@@ -47,7 +53,7 @@ contextBridge.exposeInMainWorld('strategos', {
     close: () => ipcRenderer.invoke('window:close'),
   },
   on: (channel, callback) => {
-    const validChannels = ['agent:tick', 'log:entry', 'nova:brief', 'agent:halted', 'harvest:complete'];
+    const validChannels = ['agent:tick', 'log:entry', 'nova:brief', 'agent:halted', 'harvest:complete', 'nova:actionResult', 'risk:status'];
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, (_event, data) => callback(data));
     }

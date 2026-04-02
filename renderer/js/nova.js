@@ -9,6 +9,7 @@ const NovaUI = {
   btnNovaIntel: null,
   btnNovaRequest: null,
   isLoading: false,
+  currentActions: [],
 
   init() {
     this.briefContentEl = document.getElementById('nova-brief-content');
@@ -27,6 +28,7 @@ const NovaUI = {
     try {
       const data = await window.strategos.nova.getBrief();
       if (data && data.brief) {
+        this.currentActions = data.actions || [];
         this.renderBrief(data.brief, data.timestamp);
       } else {
         this.showLoadingState();
@@ -64,13 +66,94 @@ const NovaUI = {
     }
 
     // Parse and style the brief
-    const html = this.parseBriefToHtml(briefText);
+    let html = this.parseBriefToHtml(briefText);
+
+    // Append NOVA action execute buttons if available
+    if (this.currentActions && this.currentActions.length > 0) {
+      html += this.renderActionButtons(this.currentActions);
+    }
+
     this.briefContentEl.innerHTML = html;
+    this.bindActionButtons();
 
     if (timestamp) {
       const timeAgo = this.timeAgo(timestamp);
       this.briefTimestampEl.textContent = 'BRIEF GENERATED: ' + timeAgo;
       this.sidebarLastEl.textContent = 'LAST BRIEF: ' + timeAgo;
+    }
+  },
+
+  renderActionButtons(actions) {
+    let html = '<div class="nova-actions-container">';
+    html += '<div class="nova-actions-header">EXECUTABLE ACTIONS</div>';
+    actions.forEach((action) => {
+      html += '<div class="nova-action-card" data-action-id="' + this.escapeHtml(action.id) + '">';
+      html += '<div class="nova-action-top">';
+      html += '<span class="nova-action-codename">' + this.escapeHtml(action.codename) + '</span>';
+      html += '<span class="nova-action-strategy badge dim">' + this.escapeHtml(action.strategy.toUpperCase()) + '</span>';
+      html += '</div>';
+      html += '<div class="nova-action-reason">' + this.escapeHtml(action.reason) + '</div>';
+      html += '<div class="nova-action-bottom">';
+      html += '<span class="nova-action-pct">' + action.amountPct + '% DEPLOYABLE</span>';
+      html += '<button class="btn-nova-execute" data-action-id="' + this.escapeHtml(action.id) + '">EXECUTE</button>';
+      html += '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+    return html;
+  },
+
+  bindActionButtons() {
+    const buttons = this.briefContentEl.querySelectorAll('.btn-nova-execute');
+    buttons.forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const actionId = e.target.dataset.actionId;
+        this.executeAction(actionId);
+      });
+    });
+  },
+
+  async executeAction(actionId) {
+    const action = this.currentActions.find(a => a.id === actionId);
+    if (!action) return;
+
+    const btn = this.briefContentEl.querySelector('.btn-nova-execute[data-action-id="' + actionId + '"]');
+    if (btn) {
+      btn.textContent = 'EXECUTING...';
+      btn.disabled = true;
+      btn.classList.add('executing');
+    }
+
+    try {
+      const result = await window.strategos.nova.executeAction(action);
+      if (btn) {
+        if (result.success) {
+          btn.textContent = 'EXECUTED';
+          btn.classList.remove('executing');
+          btn.classList.add('executed');
+        } else {
+          btn.textContent = 'FAILED';
+          btn.classList.remove('executing');
+          btn.classList.add('failed');
+          setTimeout(() => {
+            btn.textContent = 'EXECUTE';
+            btn.disabled = false;
+            btn.classList.remove('failed');
+          }, 3000);
+        }
+      }
+    } catch (e) {
+      console.error('Nova action execution failed:', e);
+      if (btn) {
+        btn.textContent = 'ERROR';
+        btn.classList.remove('executing');
+        btn.classList.add('failed');
+        setTimeout(() => {
+          btn.textContent = 'EXECUTE';
+          btn.disabled = false;
+          btn.classList.remove('failed');
+        }, 3000);
+      }
     }
   },
 
@@ -140,6 +223,7 @@ const NovaUI = {
 
   updateFromEvent(data) {
     if (data && data.brief) {
+      this.currentActions = data.actions || [];
       this.renderBrief(data.brief, data.timestamp);
     }
   },

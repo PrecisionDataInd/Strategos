@@ -34,7 +34,25 @@ EDGE: [1 sentence — why this is non-obvious]
 RISK: [1 sentence — the main downside]
 TIMELINE: [e.g. "Deploy within 48hrs" or "Epoch-dependent"]
 
-Keep each brief tight. No filler. This is a command briefing, not a tutorial.`;
+Keep each brief tight. No filler. This is a command briefing, not a tutorial.
+
+IMPORTANT — After the tactical brief, output a JSON block wrapped in <NOVA_ACTIONS> tags containing an array of executable actions the agent can take RIGHT NOW. Each action must map to one of these strategy types: staking, lending, liquidity, arbitrage, grid.
+
+Example format:
+<NOVA_ACTIONS>
+[
+  {"id": "nova-1", "codename": "PHOENIX", "strategy": "staking", "action": "stake", "amountPct": 15, "reason": "Epoch boundary in 2hrs — stake now for max rewards"},
+  {"id": "nova-2", "codename": "HYDRA", "strategy": "arbitrage", "action": "execute", "amountPct": 10, "reason": "SOL/mSOL spread at 0.3% — immediate arb opportunity"}
+]
+</NOVA_ACTIONS>
+
+Rules for actions:
+- strategy must be one of: staking, lending, liquidity, arbitrage, grid
+- action must be one of: stake, lend, provide, execute, grid
+- amountPct is the suggested percentage of deployable balance (1-25 max)
+- Each action must have a clear, specific reason
+- Only suggest actions that are actionable RIGHT NOW, not speculative
+- Maximum 3 actions per brief`;
 
   const response = await client.messages.create({
     model: 'claude-sonnet-4-20250514',
@@ -42,7 +60,40 @@ Keep each brief tight. No filler. This is a command briefing, not a tutorial.`;
     messages: [{ role: 'user', content: prompt }],
   });
 
-  return response.content[0].text;
+  const text = response.content[0].text;
+  return text;
 }
 
-module.exports = { generateNovaBrief };
+function parseNovaActions(briefText) {
+  if (!briefText) return [];
+
+  const match = briefText.match(/<NOVA_ACTIONS>\s*([\s\S]*?)\s*<\/NOVA_ACTIONS>/);
+  if (!match) return [];
+
+  try {
+    const actions = JSON.parse(match[1]);
+    if (!Array.isArray(actions)) return [];
+
+    const validStrategies = ['staking', 'lending', 'liquidity', 'arbitrage', 'grid'];
+    const validActions = ['stake', 'lend', 'provide', 'execute', 'grid'];
+
+    return actions
+      .filter(a =>
+        a.id && a.codename && a.strategy && a.action && a.amountPct && a.reason &&
+        validStrategies.includes(a.strategy) &&
+        validActions.includes(a.action) &&
+        a.amountPct >= 1 && a.amountPct <= 25
+      )
+      .slice(0, 3); // max 3 actions
+  } catch (e) {
+    console.error('Failed to parse NOVA actions JSON:', e.message);
+    return [];
+  }
+}
+
+function stripNovaActionTags(briefText) {
+  if (!briefText) return briefText;
+  return briefText.replace(/<NOVA_ACTIONS>[\s\S]*?<\/NOVA_ACTIONS>/, '').trim();
+}
+
+module.exports = { generateNovaBrief, parseNovaActions, stripNovaActionTags };

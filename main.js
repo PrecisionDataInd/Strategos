@@ -5,7 +5,9 @@ const Store = require('electron-store');
 const { Connection, Keypair, PublicKey, SystemProgram, Transaction, sendAndConfirmTransaction, LAMPORTS_PER_SOL } = require('@solana/web3.js');
 const defaults = require('./config/defaults');
 const { startAgentLoop, stopAgentLoop, getAgentStatus } = require('./agent/loop');
-const { generateNovaBrief } = require('./agent/nova-engine');
+const { generateNovaBrief, parseNovaActions, stripNovaActionTags } = require('./agent/nova-engine');
+const { executeNovaAction } = require('./agent/nova-executor');
+const { getRiskStatus, resetSession } = require('./agent/risk-manager');
 const { executeLiveSweep } = require('./agent/sweep-live');
 const { runStrategies, STRATEGIES } = require('./agent/strategies/index');
 const { getPositions } = require('./agent/positions');
@@ -214,10 +216,13 @@ async function requestNewNovaBrief() {
       sweepThreshold: cfg.sweepThreshold,
       riskLevel: cfg.riskLevel,
     };
-    const brief = await generateNovaBrief(context);
+    const rawBrief = await generateNovaBrief(context);
+    const actions = parseNovaActions(rawBrief);
+    const brief = stripNovaActionTags(rawBrief);
     store.set('novaBrief', brief);
+    store.set('novaActions', actions);
     store.set('novaTimestamp', Date.now());
-    emitToRenderer('nova:brief', { brief, timestamp: Date.now() });
+    emitToRenderer('nova:brief', { brief, timestamp: Date.now(), actions });
     addLogEntry({
       timestamp: Date.now(),
       level: 'NOVA',
@@ -291,8 +296,42 @@ function registerIPC() {
     stopAgentLoop();
   });
 
-  ipcMain.handle('nova:getBrief', async () => getNovaBrief());
+  ipcMain.handle('nova:getBrief', async () => {
+    const result = await getNovaBrief();
+    result.actions = store.get('novaActions') || [];
+    return result;
+  });
   ipcMain.handle('nova:requestNewBrief', async () => requestNewNovaBrief());
+  ipcMain.handle('nova:getActions', async () => store.get('novaActions') || []);
+  ipcMain.handle('nova:executeAction', async (_e, action) => {
+    if (!connection || !agentKeypair) {
+      return { success: false, error: 'WALLET_NOT_CONFIGURED' };
+    }
+    const cfg = getConfig();
+    const result = await executeNovaAction({
+      action,
+      connection,
+      agentKeypair,
+      config: cfg,
+      log: logEntry,
+    });
+    emitToRenderer('nova:actionResult', result);
+    return result;
+  });
+
+  // Phase 3b: Risk Manager IPC handlers
+  ipcMain.handle('risk:getStatus', async () => {
+    const status = getRiskStatus();
+    const agentBalance = await getAgentBalance();
+    const sessionHigh = status.sessionHigh || agentBalance;
+    const drawdownPct = sessionHigh > 0 ? (sessionHigh - agentBalance) / sessionHigh : 0;
+    return { ...status, currentBalance: agentBalance, drawdownPct };
+  });
+  ipcMain.handle('risk:resetSession', async () => {
+    const agentBalance = await getAgentBalance();
+    resetSession(agentBalance);
+    return { sessionHigh: agentBalance, sessionStart: new Date().toISOString() };
+  });
 
   // Phase 2: Strategy IPC handlers
   ipcMain.handle('strategies:getResults', async () => latestStrategyResults);

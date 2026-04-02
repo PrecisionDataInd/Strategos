@@ -28,6 +28,9 @@
   // Phase 3a: Latest positions data
   let latestPositions = {};
 
+  // Phase 3b: Risk manager state
+  let latestRiskStatus = { drawdownPct: 0, sessionHigh: 0, shouldHalt: false };
+
   // ---------------------------------------------------------------------------
   // DOM refs
   // ---------------------------------------------------------------------------
@@ -97,6 +100,8 @@
     window.strategos.on('nova:brief', handleNovaBrief);
     window.strategos.on('agent:halted', handleAgentHalted);
     window.strategos.on('harvest:complete', handleHarvestComplete);
+    window.strategos.on('risk:status', handleRiskStatus);
+    window.strategos.on('nova:actionResult', handleNovaActionResult);
 
     // Get initial agent status
     try {
@@ -291,10 +296,65 @@
     NovaUI.updateFromEvent(data);
   }
 
-  function handleAgentHalted() {
+  function handleAgentHalted(data) {
     agentRunning = false;
     updateAgentUI();
-    showErrorBanner('critical', 'AGENT HALTED \u2014 Balance below loss floor. Manual intervention required.');
+    if (data && data.reason === 'DRAWDOWN_EXCEEDED') {
+      showErrorBanner('critical', 'AGENT HALTED \u2014 Drawdown ' + ((data.drawdownPct || 0) * 100).toFixed(1) + '% exceeds 20% limit. Reset session to resume.');
+    } else {
+      showErrorBanner('critical', 'AGENT HALTED \u2014 Balance below loss floor. Manual intervention required.');
+    }
+  }
+
+  // Phase 3b: Risk status handler
+  function handleRiskStatus(data) {
+    latestRiskStatus = data;
+    updateRiskIndicator(data);
+  }
+
+  function updateRiskIndicator(riskData) {
+    const indicator = document.getElementById('risk-indicator');
+    if (!indicator) return;
+
+    const pct = ((riskData.drawdownPct || 0) * 100).toFixed(1);
+    const drawdownEl = indicator.querySelector('.risk-drawdown-value');
+    const barFill = indicator.querySelector('.risk-bar-fill');
+    const statusEl = indicator.querySelector('.risk-status-label');
+
+    if (drawdownEl) drawdownEl.textContent = pct + '%';
+    if (barFill) {
+      const fillPct = Math.min(riskData.drawdownPct / 0.20 * 100, 100);
+      barFill.style.width = fillPct + '%';
+      if (riskData.drawdownPct >= 0.15) {
+        barFill.className = 'risk-bar-fill critical';
+      } else if (riskData.drawdownPct >= 0.10) {
+        barFill.className = 'risk-bar-fill warning';
+      } else {
+        barFill.className = 'risk-bar-fill normal';
+      }
+    }
+    if (statusEl) {
+      if (riskData.shouldHalt) {
+        statusEl.textContent = 'HALTED';
+        statusEl.style.color = 'var(--loss-red)';
+      } else if (riskData.drawdownPct >= 0.10) {
+        statusEl.textContent = 'CAUTION';
+        statusEl.style.color = 'var(--warn-amber)';
+      } else {
+        statusEl.textContent = 'NOMINAL';
+        statusEl.style.color = 'var(--gain-green)';
+      }
+    }
+  }
+
+  function handleNovaActionResult(data) {
+    if (data && data.codename) {
+      const level = data.success ? 'NOVA' : 'ERROR';
+      const msg = data.success
+        ? 'NOVA ACTION: ' + data.codename + ' executed \u2014 ' + (data.amountSol || 0).toFixed(4) + ' SOL'
+        : 'NOVA ACTION: ' + data.codename + ' failed \u2014 ' + (data.error || 'unknown');
+      LoggerUI.addEntry({ timestamp: Date.now(), level, message: msg });
+    }
   }
 
   // ---------------------------------------------------------------------------
