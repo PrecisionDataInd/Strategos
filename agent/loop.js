@@ -2,6 +2,7 @@ const { startHarvestTimer, stopHarvestTimer } = require('./harvest');
 const { getPositions, getOpenPositions, savePosition } = require('./positions');
 const { initSession, recordBalance, checkDrawdown, resetSession } = require('./risk-manager');
 const { getCachedPrice } = require('./price-feed');
+const { runStopLossCheck } = require('./strategies/stop-loss');
 
 let loopInterval = null;
 let running = false;
@@ -132,6 +133,18 @@ async function runTick() {
 
     // Emit risk status to renderer each tick
     deps.emitToRenderer('risk:status', riskCheck);
+
+    // Run stop-loss check before strategies
+    if (deps.connection) {
+      try {
+        const stopLossLog = (level, message) => {
+          deps.addLogEntry({ timestamp: Date.now(), level, message });
+        };
+        await runStopLossCheck({ connection: deps.connection, log: stopLossLog });
+      } catch (slErr) {
+        console.error('Stop-loss check error:', slErr.message);
+      }
+    }
 
     const sweepResult = await deps.checkAndSweep();
 

@@ -17,13 +17,28 @@
   const strategyPnL = {
     staking: 0,
     lending: 0,
+    leveraged: 0,
     liquidity: 0,
     arbitrage: 0,
+    mev: 0,
+    sniper: 0,
     grid: 0,
   };
 
   // Strategy ID to row index mapping
-  const STRATEGY_IDS = ['staking', 'lending', 'liquidity', 'arbitrage', 'grid'];
+  const STRATEGY_IDS = ['staking', 'lending', 'leveraged', 'liquidity', 'arbitrage', 'mev', 'sniper', 'grid'];
+
+  // Strategy display metadata
+  const STRATEGY_DISPLAY = {
+    staking:   { name: 'Liquid Staking',     sub: 'Marinade / Jito / Sanctum', riskTier: 'LOW' },
+    lending:   { name: 'Lending Desk',       sub: 'Solend / Kamino',           riskTier: 'LOW' },
+    leveraged: { name: 'Leveraged Yield',    sub: 'mSOL Collateral Loop',      riskTier: 'MEDIUM' },
+    liquidity: { name: 'Liquidity Provision',sub: 'Raydium CLMM',              riskTier: 'MEDIUM' },
+    arbitrage: { name: 'Arbitrage',          sub: 'Jupiter Cross-DEX',         riskTier: 'MEDIUM' },
+    mev:       { name: 'MEV Capture',        sub: 'Jito Bundle Engine',        riskTier: 'HIGH' },
+    sniper:    { name: 'Launch Sniper',      sub: 'New Pool Detection',        riskTier: 'HIGH' },
+    grid:      { name: 'Grid Trading',       sub: 'SOL/USDC Bands',            riskTier: 'HIGH' },
+  };
 
   // Phase 3a: Latest positions data
   let latestPositions = {};
@@ -517,23 +532,19 @@
         cells[4].style.color = 'var(--text-muted)';
       }
 
-      // Column 5 (Risk Tier) — already set in HTML, just re-apply
-      const strategy = [
-        { risk: 'LOW' },
-        { risk: 'LOW' },
-        { risk: 'MEDIUM' },
-        { risk: 'MEDIUM' },
-        { risk: 'HIGH' },
-      ];
+      // Column 5 (Risk Tier) — use STRATEGY_DISPLAY metadata
+      const stratId = STRATEGY_IDS[idx];
+      const displayMeta = STRATEGY_DISPLAY[stratId] || {};
+      const riskTier = displayMeta.riskTier || 'LOW';
       const riskColors = { LOW: 'var(--gain-green)', MEDIUM: 'var(--warn-amber)', HIGH: 'var(--loss-red)' };
-      cells[5].textContent = strategy[idx].risk;
-      cells[5].style.color = riskColors[strategy[idx].risk];
+      cells[5].textContent = riskTier;
+      cells[5].style.color = riskColors[riskTier];
     });
 
     // Update strategy header badge
     const headerBadge = document.getElementById('strategy-header-badge');
     if (headerBadge) {
-      headerBadge.textContent = activeCount + ' / 5 STRATEGIES ACTIVE';
+      headerBadge.textContent = activeCount + ' / 8 STRATEGIES ACTIVE';
       headerBadge.className = 'badge live';
     }
   }

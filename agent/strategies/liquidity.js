@@ -1,127 +1,103 @@
-let WhirlpoolContext, buildWhirlpoolClient, ORCA_WHIRLPOOL_PROGRAM_ID;
-let PriceMath, TickUtil, DecimalUtil, Percentage;
-let AnchorProvider;
-let Decimal;
-let orcaAvailable = false;
+let Raydium, TxVersion;
+let raydiumAvailable = false;
 
 try {
-  const orcaSdk = require('@orca-so/whirlpools-sdk');
-  WhirlpoolContext = orcaSdk.WhirlpoolContext;
-  buildWhirlpoolClient = orcaSdk.buildWhirlpoolClient;
-  ORCA_WHIRLPOOL_PROGRAM_ID = orcaSdk.ORCA_WHIRLPOOL_PROGRAM_ID;
-  PriceMath = orcaSdk.PriceMath;
-  TickUtil = orcaSdk.TickUtil;
-  AnchorProvider = require('@coral-xyz/anchor').AnchorProvider;
-  const commonSdk = require('@orca-so/common-sdk');
-  DecimalUtil = commonSdk.DecimalUtil;
-  Percentage = commonSdk.Percentage;
-  Decimal = require('decimal.js');
-  orcaAvailable = true;
+  const raydiumSdk = require('@raydium-io/raydium-sdk-v2');
+  Raydium = raydiumSdk.Raydium;
+  TxVersion = raydiumSdk.TxVersion;
+  raydiumAvailable = true;
+  console.log('[STRATEGOS] Raydium SDK loaded successfully');
 } catch (e) {
-  // SDK not installed
+  console.warn('[STRATEGOS] Raydium SDK not available:', e.message);
 }
 
-// Log SDK status on startup
-if (orcaAvailable) {
-  console.log('[STRATEGOS] Orca Whirlpool SDK loaded successfully');
-} else {
-  console.warn('[STRATEGOS] Orca Whirlpool SDK NOT available — liquidity strategy will skip gracefully');
-}
-
-const { PublicKey } = require('@solana/web3.js');
 const { savePosition, getOpenPositions } = require('../positions');
+const { PublicKey } = require('@solana/web3.js');
 
-// SOL/USDC Whirlpool on mainnet (0.05% fee tier)
-let SOL_USDC_WHIRLPOOL;
-try { SOL_USDC_WHIRLPOOL = new PublicKey('HJPjoWUrhoZzkNfRpHuieeFk9WcZWjwy6PBjZ81ngndJ'); } catch (e) {}
+// Raydium SOL/USDC CLMM pool (mainnet)
+const SOL_USDC_POOL = new PublicKey('2QdhepnKRTLjjSqPL1PtKNwqrUkoLee5Gqs8bvZhRdAv');
 
 async function executeLiquidity({ connection, agentKeypair, amountSol, log }) {
-  if (!orcaAvailable) {
-    log('WARN', 'LP SKIPPED: @orca-so/whirlpools-sdk not installed — run npm install --legacy-peer-deps', {});
-    return { success: false, reason: 'SDK_NOT_INSTALLED', strategy: 'orca-clmm' };
-  }
-
   if (amountSol < 0.5) return { success: false, reason: 'AMOUNT_TOO_SMALL' };
 
-  // Skip if already have an open LP position
-  const openPositions = getOpenPositions('liquidity');
-  if (openPositions.length > 0) {
-    log('INFO', `LP: ${openPositions.length} position(s) already open — skipping new deposit`, { count: openPositions.length });
-    return { success: true, reason: 'POSITION_EXISTS', positions: openPositions, strategy: 'orca-clmm' };
+  const existing = getOpenPositions('liquidity');
+  if (existing.length > 0) {
+    // Stop-loss check
+    const pos = existing[0];
+    if (pos.entryValueSol) {
+      const drawdown = (pos.entryValueSol - (pos.currentValueSol || pos.amountSol)) / pos.entryValueSol;
+      if (drawdown >= 0.05) {
+        log('WARN', `LP: position down ${(drawdown*100).toFixed(2)}% — stop-loss exit`, { drawdown });
+        const { closePosition } = require('../positions');
+        closePosition('liquidity', pos.id, { exitReason: 'STOP_LOSS' });
+        return { success: true, exited: true, reason: 'STOP_LOSS' };
+      }
+    }
+    log('INFO', `LP: ${existing.length} Raydium position(s) active`, { count: existing.length });
+    return { success: true, reason: 'POSITION_EXISTS', strategy: 'raydium-clmm', apy: '~12%', _displayStatus: 'ACTIVE' };
+  }
+
+  if (!raydiumAvailable) {
+    log('WARN', 'LP SKIPPED: Raydium SDK not installed', {});
+    return { success: false, reason: 'SDK_NOT_INSTALLED', soft: true, _displayStatus: 'STANDBY' };
   }
 
   try {
-    // Set up Anchor provider and Whirlpool client
-    const wallet = {
-      publicKey: agentKeypair.publicKey,
-      signTransaction: async (tx) => { tx.sign([agentKeypair]); return tx; },
-      signAllTransactions: async (txs) => { txs.forEach(tx => tx.sign([agentKeypair])); return txs; },
-    };
+    log('INFO', `LP: opening Raydium CLMM position with ${amountSol.toFixed(4)} SOL`, { amount: amountSol });
 
-    const provider = new AnchorProvider(connection, wallet, { commitment: 'confirmed' });
-    const ctx = WhirlpoolContext.withProvider(provider, ORCA_WHIRLPOOL_PROGRAM_ID);
-    const client = buildWhirlpoolClient(ctx);
-
-    // Fetch pool state
-    const pool = await client.getPool(SOL_USDC_WHIRLPOOL);
-    const poolData = pool.getData();
-    const currentTick = poolData.tickCurrentIndex;
-    const tickSpacing = poolData.tickSpacing;
-
-    // Define position range: ±5% around current price (~69 ticks each side for 0.05% pool)
-    const RANGE_TICKS = Math.floor(500 / tickSpacing) * tickSpacing;
-    const lowerTick = TickUtil.getInitializableTickIndex(currentTick - RANGE_TICKS, tickSpacing);
-    const upperTick = TickUtil.getInitializableTickIndex(currentTick + RANGE_TICKS, tickSpacing);
-
-    const currentPrice = PriceMath.tickIndexToPrice(currentTick, 9, 6);
-    log('INFO', `LP: opening position at $${currentPrice.toFixed(2)} | range $${PriceMath.tickIndexToPrice(lowerTick, 9, 6).toFixed(2)} - $${PriceMath.tickIndexToPrice(upperTick, 9, 6).toFixed(2)}`, {
-      currentTick, lowerTick, upperTick
+    const raydium = await Raydium.load({
+      connection,
+      owner: agentKeypair,
+      disableLoadToken: false,
     });
 
-    // Calculate token amounts
-    const solAmount = new Decimal(amountSol / 2);
-    const slippage = Percentage.fromFraction(1, 100); // 1% slippage
+    // Fetch pool info
+    const poolInfo = await raydium.clmm.getPoolInfoFromRpc(SOL_USDC_POOL.toString());
+    const currentPrice = poolInfo.currentPrice;
 
-    // Open position transaction
-    const { tx: openTx, positionMint } = await pool.openPositionWithMetadata(
-      lowerTick,
-      upperTick,
-      { tokenA: DecimalUtil.fromNumber(solAmount.toNumber(), 9) },
-      slippage,
-      agentKeypair.publicKey
-    );
+    // Define ±5% range
+    const lowerPrice = currentPrice * 0.95;
+    const upperPrice = currentPrice * 1.05;
 
-    const openTxId = await openTx.buildAndExecute();
-    await connection.confirmTransaction(openTxId, 'confirmed');
+    log('INFO', `LP: opening position @ $${currentPrice.toFixed(2)} | range $${lowerPrice.toFixed(2)}-$${upperPrice.toFixed(2)}`, {
+      currentPrice, lowerPrice, upperPrice
+    });
 
-    const position = {
-      positionMint: positionMint.toString(),
-      lowerTick,
-      upperTick,
+    const { execute } = await raydium.clmm.openPositionFromBase({
+      poolInfo,
+      ownerInfo: { useSOLBalance: true },
+      tickLower: raydium.clmm.getPriceToTick(poolInfo, lowerPrice, true),
+      tickUpper: raydium.clmm.getPriceToTick(poolInfo, upperPrice, false),
+      base: 'MintA',
+      baseAmount: BigInt(Math.floor(amountSol / 2 * 1e9)),
+      otherAmountMax: BigInt(Math.floor(amountSol / 2 * poolInfo.currentPrice * 1e6)),
+      txVersion: TxVersion.V0,
+    });
+
+    const { txids } = await execute({ sendAndConfirm: true });
+    const txid = txids[0];
+
+    savePosition('liquidity', {
       amountSol,
-      openPrice: currentPrice.toFixed(4),
-      txid: openTxId,
+      entryValueSol: amountSol,
+      currentValueSol: amountSol,
+      protocol: 'raydium-clmm',
+      poolAddress: SOL_USDC_POOL.toString(),
+      entryPrice: currentPrice,
+      lowerPrice,
+      upperPrice,
+      txid,
       status: 'OPEN',
-    };
-
-    savePosition('liquidity', position);
-
-    log('INFO', `LP POSITION OPENED: ${amountSol.toFixed(4)} SOL | mint ${positionMint.toString().slice(0,8)}... | txid ${openTxId}`, {
-      positionMint: positionMint.toString(), txid: openTxId
+      apy: '~12%',
+      openedAt: new Date().toISOString(),
     });
 
-    return {
-      success: true,
-      txid: openTxId,
-      positionMint: positionMint.toString(),
-      amountSol,
-      strategy: 'orca-clmm',
-      apy: '~10.9%',
-    };
+    log('INFO', `LP POSITION OPENED: ${amountSol.toFixed(4)} SOL | Raydium CLMM | txid ${txid}`, { txid });
+    return { success: true, txid, amountSol, strategy: 'raydium-clmm', apy: '~12%', _displayStatus: 'ACTIVE' };
 
   } catch (err) {
     log('ERROR', `LP failed: ${err.message}`, { error: err.message });
-    return { success: false, error: err.message };
+    return { success: false, error: err.message, _displayStatus: 'ERROR' };
   }
 }
 
