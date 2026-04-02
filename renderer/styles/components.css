@@ -535,86 +535,116 @@
 }
 
 /* ==========================================================================
-   Strategy grid
+   Strategy Matrix Panel
    ========================================================================== */
 
-.strategy-panel {
-  margin-bottom: 20px;
-}
-
-.strategy-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.strategy-header h2 {
-  font-family: 'Cinzel', serif;
-  font-size: 13px;
-  letter-spacing: 0.15em;
-  color: var(--bronze-mid);
-  text-transform: uppercase;
-}
-
-.strategy-grid {
-  display: grid;
-  grid-template-columns: 2fr 1.2fr 1fr 1fr 1fr 1fr;
-  gap: 0;
+.strategy-matrix-panel {
+  background: var(--bg-card);
   border: 1px solid var(--bronze-dim);
   border-radius: 4px;
+  padding: 14px 16px;
+  margin: 10px 0;
   overflow: hidden;
 }
 
-.strategy-grid-header {
+.strategy-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.strategy-table thead th {
   font-family: 'Cinzel', serif;
-  font-size: 8px;
-  letter-spacing: 0.12em;
+  font-size: 9px;
   color: var(--text-muted);
-  text-transform: uppercase;
-  padding: 8px 12px;
+  letter-spacing: 0.1em;
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--bronze-dim);
+  font-weight: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.strategy-table tbody tr {
+  border-bottom: 1px solid rgba(61,39,24,0.2);
+  transition: background 0.15s;
+}
+
+.strategy-table tbody tr:hover {
   background: var(--bg-surface);
-  border-bottom: 1px solid var(--bronze-dim);
 }
 
-.strategy-row {
-  display: contents;
+.strategy-table tbody td {
+  padding: 9px 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
 }
 
-.strategy-row > div {
-  padding: 10px 12px;
+/* Column widths — fixed layout */
+.col-name      { width: 26%; }
+.col-status    { width: 16%; }
+.col-apy       { width: 12%; }
+.col-allocated { width: 14%; }
+.col-pnl       { width: 14%; }
+.col-risk      { width: 12%; }
+
+.strategy-name-main {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  color: var(--text-primary);
+  display: block;
+}
+
+.strategy-name-sub {
   font-family: 'Share Tech Mono', monospace;
-  font-size: 14px;
-  color: var(--text-secondary);
-  border-bottom: 1px solid var(--bronze-dim);
-  display: flex;
-  align-items: center;
-  transition: border-left 0.15s;
-}
-
-.strategy-row:hover > div {
-  border-left-color: var(--cyan-dim);
-}
-
-.strategy-row:hover > div:first-child {
-  border-left: 2px solid var(--cyan-dim);
-}
-
-.strategy-row:last-child > div {
-  border-bottom: none;
-}
-
-.strategy-name {
-  font-family: 'Cinzel', serif !important;
-  font-size: 12px !important;
-  color: var(--text-primary) !important;
-  letter-spacing: 0.05em;
-}
-
-.strategy-sub {
   font-size: 10px;
   color: var(--text-muted);
-  margin-left: 6px;
+  display: block;
+  margin-top: 1px;
+}
+
+.strategy-pos-count {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  color: var(--cyan-mid);
+  display: block;
+  margin-top: 2px;
+}
+
+.col-apy-val {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.col-alloc-val {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: var(--bronze-light);
+}
+
+.col-pnl-val {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+}
+
+.risk-low    { color: var(--gain-green); font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: 0.08em; }
+.risk-medium { color: var(--warn-amber); font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: 0.08em; }
+.risk-high   { color: var(--loss-red);   font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: 0.08em; }
+
+.badge-active-count {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--gain-green);
+  background: rgba(111,212,129,0.08);
+  border: 1px solid rgba(111,212,129,0.2);
+  border-radius: 3px;
+  padding: 3px 10px;
 }
 
 /* ==========================================================================

@@ -212,29 +212,25 @@
         </div>
 
         <!-- Strategy Intelligence Grid -->
-        <div class="strategy-panel stagger-in">
-          <div class="strategy-header">
-            <h2>Strategy Matrix</h2>
-            <span class="badge live" id="strategy-header-badge">0 / 8 STRATEGIES ACTIVE</span>
-            <span id="strategy-active-count" class="strategy-active-count"></span>
+        <div class="strategy-matrix-panel stagger-in">
+          <div class="panel-header-row">
+            <span class="panel-title">STRATEGY MATRIX</span>
+            <span class="badge-active-count" id="strategy-active-count">0 / 8 STRATEGIES ACTIVE</span>
           </div>
-          <div class="strategy-table-wrap">
-            <table class="strategy-table">
-              <thead>
-                <tr>
-                  <th>Strategy</th>
-                  <th>Status</th>
-                  <th>Projected APY</th>
-                  <th>Allocated</th>
-                  <th>Session P&amp;L</th>
-                  <th>Risk Tier</th>
-                </tr>
-              </thead>
-              <tbody id="strategy-matrix-tbody">
-                <!-- Rows generated dynamically by updateStrategyMatrix() -->
-              </tbody>
-            </table>
-          </div>
+          <table class="strategy-table" id="strategy-matrix-table">
+            <thead>
+              <tr>
+                <th class="col-name">STRATEGY</th>
+                <th class="col-status">STATUS</th>
+                <th class="col-apy">APY</th>
+                <th class="col-allocated">ALLOCATED</th>
+                <th class="col-pnl">SESSION P&amp;L</th>
+                <th class="col-risk">RISK</th>
+              </tr>
+            </thead>
+            <tbody id="strategy-matrix-tbody">
+            </tbody>
+          </table>
         </div>
 
         <!-- Portfolio Panel (Phase 4) -->

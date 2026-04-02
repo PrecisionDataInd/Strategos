@@ -30,14 +30,14 @@
 
   // Complete strategy display config — all 8 strategies
   const STRATEGY_DISPLAY = {
-    staking:   { name: 'Liquid Staking',      sub: 'Marinade / Jito / Sanctum', riskTier: 'LOW',    riskClass: 'risk-low' },
-    lending:   { name: 'Lending Desk',        sub: 'Solend / Kamino',           riskTier: 'LOW',    riskClass: 'risk-low' },
-    leveraged: { name: 'Leveraged Yield',     sub: 'mSOL Collateral Loop',      riskTier: 'MEDIUM', riskClass: 'risk-medium' },
-    liquidity: { name: 'Liquidity Provision', sub: 'Raydium CLMM',              riskTier: 'MEDIUM', riskClass: 'risk-medium' },
-    arbitrage: { name: 'Arbitrage',           sub: 'Jupiter Cross-DEX',         riskTier: 'MEDIUM', riskClass: 'risk-medium' },
-    mev:       { name: 'MEV Capture',         sub: 'Jito Bundle Engine',        riskTier: 'HIGH',   riskClass: 'risk-high' },
-    sniper:    { name: 'Launch Sniper',       sub: 'New Pool Detection',        riskTier: 'HIGH',   riskClass: 'risk-high' },
-    grid:      { name: 'Grid Trading',        sub: 'SOL/USDC Bands',            riskTier: 'HIGH',   riskClass: 'risk-high' },
+    staking:   { name: 'Liquid Staking',      sub: 'Marinade / Jito',       risk: 'LOW',    riskClass: 'risk-low' },
+    lending:   { name: 'Lending Desk',        sub: 'Solend',                risk: 'LOW',    riskClass: 'risk-low' },
+    leveraged: { name: 'Leveraged Yield',     sub: 'mSOL Loop',             risk: 'MEDIUM', riskClass: 'risk-medium' },
+    liquidity: { name: 'Liquidity Provision', sub: 'Raydium CLMM',          risk: 'MEDIUM', riskClass: 'risk-medium' },
+    arbitrage: { name: 'Arbitrage',           sub: 'Jupiter Cross-DEX',     risk: 'MEDIUM', riskClass: 'risk-medium' },
+    mev:       { name: 'MEV Capture',         sub: 'Jito Bundles',          risk: 'HIGH',   riskClass: 'risk-high' },
+    sniper:    { name: 'Launch Sniper',       sub: 'New Pool Detection',    risk: 'HIGH',   riskClass: 'risk-high' },
+    grid:      { name: 'Grid Trading',        sub: 'SOL/USDC Bands',        risk: 'HIGH',   riskClass: 'risk-high' },
   };
 
   // Phase 3a: Latest positions data
@@ -411,66 +411,65 @@
   // ---------------------------------------------------------------------------
   // Phase 2/3a: Strategy Matrix Update
   // ---------------------------------------------------------------------------
-  function getBadgeHTML(displayStatus) {
-    switch (displayStatus) {
-      case 'ACTIVE':   return '<span class="badge-active">ACTIVE</span>';
-      case 'TRACKED':  return '<span class="badge-tracked">TRACKED</span>';
-      case 'STANDBY':  return '<span class="badge-standby">STANDBY</span>';
-      case 'ERROR':    return '<span class="badge-error">ERROR</span>';
-      default:         return '<span class="badge-standby">STANDBY</span>';
-    }
+  function getBadgeHTML(status) {
+    const badges = {
+      'ACTIVE':  '<span class="badge-active">ACTIVE</span>',
+      'TRACKED': '<span class="badge-tracked">TRACKED</span>',
+      'STANDBY': '<span class="badge-standby">STANDBY</span>',
+      'ERROR':   '<span class="badge-error">ERROR</span>',
+    };
+    return badges[status] || badges['STANDBY'];
   }
 
   function updateStrategyMatrix(strategyResults) {
+    if (!strategyResults || !Array.isArray(strategyResults)) return;
+
     const tbody = document.getElementById('strategy-matrix-tbody');
-    if (!tbody || !strategyResults) return;
+    if (!tbody) return;
 
-    // Count active strategies
-    const activeCount = strategyResults.filter(r => r._displayStatus === 'ACTIVE' || r._displayStatus === 'TRACKED').length;
-    const totalCount = strategyResults.length;
-    const countBadge = document.getElementById('strategy-active-count');
-    if (countBadge) countBadge.textContent = `${activeCount} / ${totalCount} STRATEGIES ACTIVE`;
+    let activeCount = 0;
 
-    // Also update legacy header badge
-    const headerBadge = document.getElementById('strategy-header-badge');
-    if (headerBadge) {
-      headerBadge.textContent = activeCount + ' / ' + totalCount + ' STRATEGIES ACTIVE';
-      headerBadge.className = 'badge live';
-    }
-
-    // Update or create rows for each result
     strategyResults.forEach(result => {
-      const display = STRATEGY_DISPLAY[result.id] || { name: result.name || result.id, sub: '', riskTier: '\u2014', riskClass: '' };
-      const rowId = `strategy-row-${result.id}`;
-      let row = document.getElementById(rowId);
+      const display = STRATEGY_DISPLAY[result.id] || { name: result.id, sub: '', risk: '\u2014', riskClass: '' };
+      const status = result._displayStatus || 'STANDBY';
+      if (status === 'ACTIVE' || status === 'TRACKED') activeCount++;
 
-      // Create row if it doesn't exist
+      const rowId = `srow-${result.id}`;
+      let row = document.getElementById(rowId);
       if (!row) {
         row = document.createElement('tr');
         row.id = rowId;
-        row.className = 'strategy-row';
         tbody.appendChild(row);
       }
 
+      const posCount = result.positions?.length || (result.reason === 'POSITION_EXISTS' ? 1 : 0);
+      const posLabel = posCount > 0
+        ? `<span class="strategy-pos-count">POSITIONS: ${posCount} open</span>`
+        : '';
+
       const apy = result.apy || '\u2014';
-      const allocated = result.amountSol ? `\u25CE ${parseFloat(result.amountSol).toFixed(4)}` : '\u2014';
-      const pnl = result.sessionPnl ? `\u25CE ${result.sessionPnl.toFixed(4)}` : '\u25CE 0.0000';
-      const positionCount = result.positions?.length || (result.reason === 'POSITION_EXISTS' ? 1 : 0);
-      const posLabel = positionCount > 0 ? `<span class="pos-count">POSITIONS: ${positionCount} open</span>` : '';
+      const allocated = result.amountSol
+        ? `\u25CE ${parseFloat(result.amountSol).toFixed(4)}`
+        : '\u2014';
+      const pnl = '\u25CE 0.0000';
+      const pnlClass = 'col-muted';
 
       row.innerHTML = `
-        <td class="col-strategy">
-          <span class="strategy-name">${display.name}</span>
-          <span class="strategy-sub">${display.sub}</span>
+        <td>
+          <span class="strategy-name-main">${display.name}</span>
+          <span class="strategy-name-sub">${display.sub}</span>
           ${posLabel}
         </td>
-        <td>${getBadgeHTML(result._displayStatus)}</td>
-        <td class="col-mono col-muted">${apy}</td>
-        <td class="col-mono">${allocated}</td>
-        <td class="col-mono col-muted">${pnl}</td>
-        <td class="col-mono ${display.riskClass}">${display.riskTier}</td>
+        <td>${getBadgeHTML(status)}</td>
+        <td><span class="col-apy-val">${apy}</span></td>
+        <td><span class="col-alloc-val">${allocated}</span></td>
+        <td><span class="col-pnl-val ${pnlClass}">${pnl}</span></td>
+        <td><span class="${display.riskClass}">${display.risk}</span></td>
       `;
     });
+
+    const countEl = document.getElementById('strategy-active-count');
+    if (countEl) countEl.textContent = `${activeCount} / ${strategyResults.length} STRATEGIES ACTIVE`;
   }
 
   // ---------------------------------------------------------------------------
