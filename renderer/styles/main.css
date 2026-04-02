@@ -6,25 +6,25 @@
 
 :root {
   --bg-void: #0d0608;
-  --bg-deep: #130c0e;
-  --bg-surface: #1a1014;
-  --bg-card: #201519;
+  --bg-deep: #181520;
+  --bg-surface: #1e1b20;
+  --bg-card: #252028;
 
-  --bronze-light: #d4956a;
-  --bronze-mid: #b07248;
+  --bronze-light: #e8aa78;
+  --bronze-mid: #c88855;
   --bronze-dark: #7a4e30;
   --bronze-dim: #3d2718;
 
-  --cyan-hot: #00d4ff;
+  --cyan-hot: #00eeff;
   --cyan-mid: #0099bb;
   --cyan-dim: #004455;
 
-  --text-primary: #e8ddd0;
-  --text-secondary: #9a8878;
-  --text-muted: #5a4e44;
+  --text-primary: #f5ede0;
+  --text-secondary: #c8b49a;
+  --text-muted: #8a7868;
 
-  --gain-green: #5ab87a;
-  --loss-red: #c45050;
+  --gain-green: #6fd491;
+  --loss-red: #e06060;
   --warn-amber: #c49050;
 
   --column-line: #3d2718;
@@ -130,7 +130,7 @@ html, body {
 
 #titlebar-wordmark {
   font-family: 'Cinzel Decorative', cursive;
-  font-size: 13px;
+  font-size: 15px;
   color: var(--bronze-light);
   letter-spacing: 0.2em;
 }
@@ -232,7 +232,7 @@ html, body {
 }
 
 .error-banner.critical {
-  background: rgba(196, 80, 80, 0.2);
+  background: rgba(224, 96, 96, 0.2);
   border-bottom: 1px solid var(--loss-red);
   color: var(--loss-red);
 }
@@ -312,7 +312,7 @@ html, body {
 
 .section-header {
   font-family: 'Cinzel', serif;
-  font-size: 10px;
+  font-size: 13px;
   letter-spacing: 0.15em;
   color: var(--bronze-mid);
   text-transform: uppercase;

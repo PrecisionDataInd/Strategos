@@ -23,7 +23,7 @@ function startAgentLoop(dependencies) {
   deps.addLogEntry({
     timestamp: Date.now(),
     level: 'INFO',
-    message: `Agent loop started — interval ${cfg.checkIntervalSeconds}s`,
+    message: `Agent loop started \u2014 interval ${cfg.checkIntervalSeconds}s`,
   });
 
   deps.emitToRenderer('agent:tick', {
@@ -56,8 +56,32 @@ async function runTick() {
     deps.addLogEntry({
       timestamp: Date.now(),
       level: 'HEARTBEAT',
-      message: `Tick — Agent: ${agentBalance.toFixed(4)} SOL | Vault: ${vaultBalance.toFixed(4)} SOL${sweepResult.swept ? ' | SWEEP TRIGGERED' : ''}`,
+      message: `Tick \u2014 Agent: ${agentBalance.toFixed(4)} SOL | Vault: ${vaultBalance.toFixed(4)} SOL${sweepResult.swept ? ' | SWEEP TRIGGERED' : ''}`,
     });
+
+    // Phase 2: Run strategies after sweep check
+    let strategyResults = [];
+    if (deps.runStrategies && deps.connection && deps.agentKeypair) {
+      try {
+        const logFn = (level, message) => {
+          deps.addLogEntry({ timestamp: Date.now(), level, message });
+        };
+        strategyResults = await deps.runStrategies({
+          connection: deps.connection,
+          agentKeypair: deps.agentKeypair,
+          config: cfg,
+          store: deps.store,
+          log: logFn,
+        });
+      } catch (stratErr) {
+        console.error('Strategy execution error:', stratErr.message);
+        deps.addLogEntry({
+          timestamp: Date.now(),
+          level: 'ERROR',
+          message: `Strategy execution error: ${stratErr.message}`,
+        });
+      }
+    }
 
     // Check if Nova brief is due
     if (cfg.novaEnabled) {
@@ -78,6 +102,7 @@ async function runTick() {
       agentBalance,
       vaultBalance,
       sweepResult,
+      strategyResults,
     });
   } catch (e) {
     console.error('Agent tick error:', e.message);

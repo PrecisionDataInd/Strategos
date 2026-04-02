@@ -10,6 +10,11 @@ contextBridge.exposeInMainWorld('strategos', {
   sweep: {
     checkAndSweep: () => ipcRenderer.invoke('sweep:checkAndSweep'),
     manualSweep: () => ipcRenderer.invoke('sweep:manualSweep'),
+    isLiveMode: () => ipcRenderer.invoke('sweep:isLiveMode'),
+  },
+  strategies: {
+    getResults: () => ipcRenderer.invoke('strategies:getResults'),
+    getPositions: () => ipcRenderer.invoke('strategies:getPositions'),
   },
   config: {
     get: () => ipcRenderer.invoke('config:get'),

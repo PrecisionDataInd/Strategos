@@ -2,16 +2,21 @@ require('dotenv').config();
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const Store = require('electron-store');
-const { Connection, Keypair, PublicKey, LAMPORTS_PER_SOL } = require('@solana/web3.js');
+const { Connection, Keypair, PublicKey, SystemProgram, Transaction, sendAndConfirmTransaction, LAMPORTS_PER_SOL } = require('@solana/web3.js');
 const defaults = require('./config/defaults');
 const { startAgentLoop, stopAgentLoop, getAgentStatus } = require('./agent/loop');
 const { generateNovaBrief } = require('./agent/nova-engine');
+const { executeLiveSweep } = require('./agent/sweep-live');
+const { runStrategies, STRATEGIES } = require('./agent/strategies/index');
 
 const store = new Store();
 let mainWindow = null;
 let connection = null;
 let agentKeypair = null;
 let vaultPublicKey = null;
+
+// Phase 2: strategy results cache
+let latestStrategyResults = [];
 
 // ---------------------------------------------------------------------------
 // Config helpers
@@ -95,8 +100,16 @@ async function getVaultBalance() {
 }
 
 // ---------------------------------------------------------------------------
-// Sweep logic
+// Sweep logic — PHASE 2: Live transactions
 // ---------------------------------------------------------------------------
+function logEntry(level, message, meta) {
+  addLogEntry({
+    timestamp: Date.now(),
+    level,
+    message,
+  });
+}
+
 async function checkAndSweep() {
   const cfg = getConfig();
   const balance = await getAgentBalance();
@@ -105,7 +118,7 @@ async function checkAndSweep() {
     const entry = {
       timestamp: Date.now(),
       level: 'CRITICAL',
-      message: `Balance ${balance.toFixed(4)} SOL below loss floor ${cfg.lossFloorSol} SOL — HALTING AGENT`,
+      message: `Balance ${balance.toFixed(4)} SOL below loss floor ${cfg.lossFloorSol} SOL \u2014 HALTING AGENT`,
     };
     addLogEntry(entry);
     stopAgentLoop();
@@ -117,16 +130,20 @@ async function checkAndSweep() {
     const sweepAmount = balance - cfg.reserveFloor;
     if (sweepAmount <= 0) return { swept: false };
 
-    const txid = 'SIM-' + Date.now();
-    const entry = {
-      timestamp: Date.now(),
-      level: 'SWEEP',
-      message: `SWEEP SIMULATED: ${sweepAmount.toFixed(4)} SOL → vault | txid: ${txid}`,
-    };
-    addLogEntry(entry);
+    // PHASE 2: Execute live sweep
+    if (agentKeypair && vaultPublicKey && connection) {
+      const result = await executeLiveSweep({
+        connection,
+        agentKeypair,
+        vaultPublicKey,
+        sweepAmountSol: sweepAmount,
+        log: logEntry,
+      });
+      return result;
+    }
 
-    // PHASE 2: Replace with SystemProgram.transfer() transaction
-    return { swept: true, amount: sweepAmount, txid, simulated: true };
+    // Fallback if wallet not configured
+    return { swept: false, reason: 'WALLET_NOT_CONFIGURED' };
   }
 
   return { swept: false };
@@ -138,15 +155,19 @@ async function manualSweep() {
   const sweepAmount = balance - cfg.reserveFloor;
   if (sweepAmount <= 0) return { swept: false, reason: 'Insufficient balance after reserve' };
 
-  const txid = 'SIM-MANUAL-' + Date.now();
-  const entry = {
-    timestamp: Date.now(),
-    level: 'SWEEP',
-    message: `MANUAL SWEEP SIMULATED: ${sweepAmount.toFixed(4)} SOL → vault | txid: ${txid}`,
-  };
-  addLogEntry(entry);
+  // PHASE 2: Execute live sweep
+  if (agentKeypair && vaultPublicKey && connection) {
+    const result = await executeLiveSweep({
+      connection,
+      agentKeypair,
+      vaultPublicKey,
+      sweepAmountSol: sweepAmount,
+      log: logEntry,
+    });
+    return result;
+  }
 
-  return { swept: true, amount: sweepAmount, txid, simulated: true };
+  return { swept: false, reason: 'WALLET_NOT_CONFIGURED' };
 }
 
 // ---------------------------------------------------------------------------
@@ -179,7 +200,7 @@ async function getNovaBrief() {
 
 async function requestNewNovaBrief() {
   if (!process.env.ANTHROPIC_API_KEY) {
-    return 'NOVA OFFLINE — API key not configured';
+    return 'NOVA OFFLINE \u2014 API key not configured';
   }
   try {
     const agentBalance = await getAgentBalance();
@@ -209,7 +230,7 @@ async function requestNewNovaBrief() {
       message: `Nova intelligence failure: ${e.message}`,
     });
     const cached = store.get('novaBrief');
-    return cached || 'NOVA OFFLINE — Brief generation failed';
+    return cached || 'NOVA OFFLINE \u2014 Brief generation failed';
   }
 }
 
@@ -237,6 +258,7 @@ function registerIPC() {
 
   ipcMain.handle('sweep:checkAndSweep', async () => checkAndSweep());
   ipcMain.handle('sweep:manualSweep', async () => manualSweep());
+  ipcMain.handle('sweep:isLiveMode', () => true);
 
   ipcMain.handle('config:get', async () => getConfig());
   ipcMain.handle('config:set', async (_e, key, value) => setConfig(key, value));
@@ -258,6 +280,9 @@ function registerIPC() {
       emitToRenderer,
       requestNewNovaBrief,
       store,
+      connection,
+      agentKeypair,
+      runStrategies,
     });
   });
   ipcMain.handle('agent:stop', async () => {
@@ -266,6 +291,12 @@ function registerIPC() {
 
   ipcMain.handle('nova:getBrief', async () => getNovaBrief());
   ipcMain.handle('nova:requestNewBrief', async () => requestNewNovaBrief());
+
+  // Phase 2: Strategy IPC handlers
+  ipcMain.handle('strategies:getResults', async () => latestStrategyResults);
+  ipcMain.handle('strategies:getPositions', async () => {
+    return store.get('strategyPositions') || {};
+  });
 
   ipcMain.handle('window:minimize', () => mainWindow && mainWindow.minimize());
   ipcMain.handle('window:maximize', () => {
@@ -317,6 +348,9 @@ app.whenReady().then(() => {
       emitToRenderer,
       requestNewNovaBrief,
       store,
+      connection,
+      agentKeypair,
+      runStrategies,
     });
   }, 2000);
 });

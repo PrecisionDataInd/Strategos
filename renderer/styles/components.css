@@ -168,7 +168,7 @@
 
 .wallet-address {
   font-family: 'Share Tech Mono', monospace;
-  font-size: 10px;
+  font-size: 13px;
   color: var(--text-secondary);
   cursor: pointer;
   padding: 4px 0;
@@ -192,7 +192,7 @@
 .rpc-badge {
   display: inline-block;
   font-family: 'Cinzel', serif;
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.08em;
   padding: 2px 8px;
   border-radius: 2px;
@@ -200,15 +200,15 @@
 }
 
 .rpc-badge.connected {
-  background: rgba(0, 212, 255, 0.1);
+  background: rgba(0, 238, 255, 0.1);
   color: var(--cyan-mid);
   border: 1px solid var(--cyan-dim);
 }
 
 .rpc-badge.offline {
-  background: rgba(196, 80, 80, 0.15);
+  background: rgba(224, 96, 96, 0.15);
   color: var(--loss-red);
-  border: 1px solid rgba(196, 80, 80, 0.3);
+  border: 1px solid rgba(224, 96, 96, 0.3);
 }
 
 /* ==========================================================================
@@ -237,7 +237,7 @@
   border: 1px solid var(--bronze-dim);
   color: var(--text-primary);
   font-family: 'Share Tech Mono', monospace;
-  font-size: 12px;
+  font-size: 13px;
   outline: none;
   transition: border-color 0.2s;
 }
@@ -380,7 +380,7 @@
 
 .metric-card .card-label {
   font-family: 'Cinzel', serif;
-  font-size: 10px;
+  font-size: 13px;
   letter-spacing: 0.12em;
   color: var(--bronze-mid);
   text-transform: uppercase;
@@ -389,7 +389,7 @@
 
 .metric-card .card-value {
   font-family: 'Share Tech Mono', monospace;
-  font-size: 30px;
+  font-size: 52px;
   line-height: 1.1;
   margin-bottom: 10px;
   transition: color 0.3s;
@@ -403,7 +403,7 @@
 
 .metric-card .card-sub {
   font-family: 'Share Tech Mono', monospace;
-  font-size: 10px;
+  font-size: 13px;
   color: var(--text-secondary);
   margin-top: 4px;
 }
@@ -412,10 +412,15 @@
   color: var(--text-muted);
 }
 
+/* Sweep Trigger card value override */
+#sweep-status {
+  font-size: 48px;
+}
+
 /* Progress bar */
 .progress-bar {
   height: 4px;
-  background: var(--bg-surface);
+  background: #2e2830;
   border-radius: 2px;
   margin: 8px 0 6px;
   overflow: hidden;
@@ -444,7 +449,7 @@
 .badge {
   display: inline-block;
   font-family: 'Cinzel', serif;
-  font-size: 8px;
+  font-size: 11px;
   letter-spacing: 0.08em;
   padding: 2px 6px;
   border-radius: 2px;
@@ -467,6 +472,24 @@
   border: 1px solid rgba(196, 144, 80, 0.3);
 }
 
+.badge.live {
+  background: rgba(111, 212, 145, 0.15);
+  color: var(--gain-green);
+  border: 1px solid rgba(111, 212, 145, 0.3);
+}
+
+.badge.amber {
+  background: rgba(196, 144, 80, 0.15);
+  color: var(--warn-amber);
+  border: 1px solid rgba(196, 144, 80, 0.3);
+}
+
+.badge.error {
+  background: rgba(224, 96, 96, 0.15);
+  color: var(--loss-red);
+  border: 1px solid rgba(224, 96, 96, 0.3);
+}
+
 /* ==========================================================================
    Strategy grid
    ========================================================================== */
@@ -484,7 +507,7 @@
 
 .strategy-header h2 {
   font-family: 'Cinzel', serif;
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.15em;
   color: var(--bronze-mid);
   text-transform: uppercase;
@@ -517,7 +540,7 @@
 .strategy-row > div {
   padding: 10px 12px;
   font-family: 'Share Tech Mono', monospace;
-  font-size: 11px;
+  font-size: 14px;
   color: var(--text-secondary);
   border-bottom: 1px solid var(--bronze-dim);
   display: flex;
@@ -539,13 +562,13 @@
 
 .strategy-name {
   font-family: 'Cinzel', serif !important;
-  font-size: 10px !important;
+  font-size: 12px !important;
   color: var(--text-primary) !important;
   letter-spacing: 0.05em;
 }
 
 .strategy-sub {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--text-muted);
   margin-left: 6px;
 }
@@ -566,7 +589,7 @@
 
 .nova-header h2 {
   font-family: 'Cinzel', serif;
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.15em;
   color: var(--bronze-mid);
   text-transform: uppercase;
@@ -586,7 +609,7 @@
   border-left: 3px solid var(--cyan-mid);
   padding: 16px 20px;
   font-family: 'Share Tech Mono', monospace;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.7;
   color: var(--text-secondary);
   white-space: pre-wrap;
@@ -647,7 +670,7 @@
 
 .log-header h2 {
   font-family: 'Cinzel', serif;
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.15em;
   color: var(--bronze-mid);
   text-transform: uppercase;
@@ -689,7 +712,7 @@
 .log-entry-level {
   display: inline-block;
   font-family: 'Cinzel', serif;
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.06em;
   padding: 1px 6px;
   border-radius: 2px;
@@ -713,7 +736,7 @@
 }
 
 .log-entry-level.ERROR {
-  background: rgba(196, 80, 80, 0.15);
+  background: rgba(224, 96, 96, 0.15);
   color: var(--loss-red);
 }
 
@@ -725,7 +748,7 @@
 }
 
 .log-entry-level.SWEEP {
-  background: rgba(90, 184, 122, 0.15);
+  background: rgba(111, 212, 145, 0.15);
   color: var(--gain-green);
 }
 
@@ -736,7 +759,7 @@
 
 .log-entry-message {
   font-family: 'Share Tech Mono', monospace;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--text-primary);
   line-height: 1.4;
   margin-top: 2px;

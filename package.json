@@ -8,8 +8,12 @@
     "install-deps": "npm install"
   },
   "dependencies": {
+    "@coral-xyz/anchor": "^0.30.0",
+    "@marinade.finance/marinade-ts-sdk": "^5.0.18",
+    "@solana/spl-token": "^0.4.6",
     "@solana/web3.js": "^1.95.4",
     "@anthropic-ai/sdk": "^0.30.0",
+    "cross-fetch": "^4.0.0",
     "dotenv": "^16.4.5",
     "electron-store": "^8.2.0"
   },

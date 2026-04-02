@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; script-src 'self';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; script-src 'self'; connect-src 'self' https://quote-api.jup.ag https://price.jup.ag;">
   <title>STRATEGOS</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cinzel:wght@400;500;600;700&family=Share+Tech+Mono&display=swap">
   <link rel="stylesheet" href="styles/main.css">
@@ -180,7 +180,7 @@
             <div class="card-label">Sweep Trigger</div>
             <div class="card-value muted" id="sweep-status">&#9678; 0.0000 UNTIL THRESHOLD</div>
             <button id="btn-manual-sweep" class="btn-bronze" style="margin-top:8px">Execute Manual Sweep</button>
-            <div class="card-sub" style="margin-top:6px"><span class="badge simulated">Simulated Mode</span></div>
+            <div class="card-sub" style="margin-top:6px"><span class="badge live">Live Mode</span></div>
           </div>
         </div>
 
@@ -188,7 +188,7 @@
         <div class="strategy-panel stagger-in">
           <div class="strategy-header">
             <h2>Strategy Matrix</h2>
-            <span class="badge dim">Phase 2 Activation</span>
+            <span class="badge live" id="strategy-header-badge">0 / 5 STRATEGIES ACTIVE</span>
           </div>
           <div class="strategy-grid">
             <!-- Header row -->
