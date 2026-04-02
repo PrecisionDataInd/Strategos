@@ -58,7 +58,7 @@ async function executeMEV({ connection, agentKeypair, amountSol, config, log }) 
     const tipData = await bundleRes.json();
     const tipAccount = tipData?.result?.[0] || JITO_TIP_ACCOUNTS[0];
 
-    // Build tip transaction — required for all Jito bundles
+    // Build tip transaction
     const tipTx = new Transaction().add(
       SystemProgram.transfer({
         fromPubkey: agentKeypair.publicKey,
@@ -67,13 +67,32 @@ async function executeMEV({ connection, agentKeypair, amountSol, config, log }) 
       })
     );
 
+    // Build a minimal self-transfer as the "payload" transaction
+    // In production MEV this would be the actual sandwich/arb transaction
+    const payloadTx = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: agentKeypair.publicKey,
+        toPubkey: agentKeypair.publicKey,
+        lamports: 1000, // 1000 lamports self-transfer
+      })
+    );
+
     const { blockhash } = await connection.getLatestBlockhash('confirmed');
+
     tipTx.recentBlockhash = blockhash;
     tipTx.feePayer = agentKeypair.publicKey;
     tipTx.sign(agentKeypair);
 
-    // Submit bundle to Jito
-    const serialized = tipTx.serialize().toString('base64');
+    payloadTx.recentBlockhash = blockhash;
+    payloadTx.feePayer = agentKeypair.publicKey;
+    payloadTx.sign(agentKeypair);
+
+    // Submit as 2-transaction bundle
+    const bundle = [
+      payloadTx.serialize().toString('base64'),
+      tipTx.serialize().toString('base64'),
+    ];
+
     const submitRes = await fetchWithTimeout('https://mainnet.block-engine.jito.wtf/api/v1/bundles', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -81,7 +100,7 @@ async function executeMEV({ connection, agentKeypair, amountSol, config, log }) 
         jsonrpc: '2.0',
         id: 1,
         method: 'sendBundle',
-        params: [[serialized]],
+        params: [bundle],
       }),
     });
 

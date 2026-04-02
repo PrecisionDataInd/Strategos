@@ -91,7 +91,7 @@ async function executeSniper({ connection, agentKeypair, amountSol, config, log 
 
       // Use Jupiter to swap into the new token for LP seeding
       const quoteRes = await fetchWithTimeout(
-        `https://api.jup.ag/swap/v1/quote?inputMint=So11111111111111111111111111111111111111112&outputMint=${poolAddress}&amount=${amountLamports}&slippageBps=300&onlyDirectRoutes=true`
+        `https://lite-api.jup.ag/swap/v1/quote?inputMint=So11111111111111111111111111111111111111112&outputMint=${poolAddress}&amount=${amountLamports}&slippageBps=300&onlyDirectRoutes=true`
       );
 
       if (!quoteRes.ok) {
@@ -102,7 +102,7 @@ async function executeSniper({ connection, agentKeypair, amountSol, config, log 
       const quote = await quoteRes.json();
       if (!quote || quote.error) continue;
 
-      const swapRes = await fetchWithTimeout('https://api.jup.ag/swap/v1/swap', {
+      const swapRes = await fetchWithTimeout('https://lite-api.jup.ag/swap/v1/swap', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

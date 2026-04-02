@@ -215,66 +215,25 @@
         <div class="strategy-panel stagger-in">
           <div class="strategy-header">
             <h2>Strategy Matrix</h2>
-            <span class="badge live" id="strategy-header-badge">0 / 5 STRATEGIES ACTIVE</span>
+            <span class="badge live" id="strategy-header-badge">0 / 8 STRATEGIES ACTIVE</span>
+            <span id="strategy-active-count" class="strategy-active-count"></span>
           </div>
-          <div class="strategy-grid">
-            <!-- Header row -->
-            <div class="strategy-grid-header">Strategy</div>
-            <div class="strategy-grid-header">Status</div>
-            <div class="strategy-grid-header">Projected APY</div>
-            <div class="strategy-grid-header">Allocated</div>
-            <div class="strategy-grid-header">Session P&amp;L</div>
-            <div class="strategy-grid-header">Risk Tier</div>
-
-            <!-- Row 1 -->
-            <div class="strategy-row">
-              <div><span class="strategy-name">Liquid Staking</span><span class="strategy-sub">Marinade / Jito / Sanctum</span></div>
-              <div><span class="badge dim">Standby &mdash; Phase 2</span></div>
-              <div>&mdash;</div>
-              <div>&mdash;</div>
-              <div>&mdash;</div>
-              <div>&mdash;</div>
-            </div>
-
-            <!-- Row 2 -->
-            <div class="strategy-row">
-              <div><span class="strategy-name">Lending Desk</span><span class="strategy-sub">Kamino / Solend</span></div>
-              <div><span class="badge dim">Standby &mdash; Phase 2</span></div>
-              <div>&mdash;</div>
-              <div>&mdash;</div>
-              <div>&mdash;</div>
-              <div>&mdash;</div>
-            </div>
-
-            <!-- Row 3 -->
-            <div class="strategy-row">
-              <div><span class="strategy-name">Liquidity Provision</span><span class="strategy-sub">Orca CLMM / Raydium</span></div>
-              <div><span class="badge dim">Standby &mdash; Phase 2</span></div>
-              <div>&mdash;</div>
-              <div>&mdash;</div>
-              <div>&mdash;</div>
-              <div>&mdash;</div>
-            </div>
-
-            <!-- Row 4 -->
-            <div class="strategy-row">
-              <div><span class="strategy-name">Arbitrage</span><span class="strategy-sub">Jupiter Cross-DEX</span></div>
-              <div><span class="badge dim">Standby &mdash; Phase 2</span></div>
-              <div>&mdash;</div>
-              <div>&mdash;</div>
-              <div>&mdash;</div>
-              <div>&mdash;</div>
-            </div>
-
-            <!-- Row 5 -->
-            <div class="strategy-row">
-              <div><span class="strategy-name">Grid Trading</span><span class="strategy-sub">SOL/USDC Bands</span></div>
-              <div><span class="badge dim">Standby &mdash; Phase 2</span></div>
-              <div>&mdash;</div>
-              <div>&mdash;</div>
-              <div>&mdash;</div>
-              <div>&mdash;</div>
-            </div>
+          <div class="strategy-table-wrap">
+            <table class="strategy-table">
+              <thead>
+                <tr>
+                  <th>Strategy</th>
+                  <th>Status</th>
+                  <th>Projected APY</th>
+                  <th>Allocated</th>
+                  <th>Session P&amp;L</th>
+                  <th>Risk Tier</th>
+                </tr>
+              </thead>
+              <tbody id="strategy-matrix-tbody">
+                <!-- Rows generated dynamically by updateStrategyMatrix() -->
+              </tbody>
+            </table>
           </div>
         </div>
 

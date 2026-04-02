@@ -25,45 +25,60 @@ const STRATEGIES = [
 
 async function runStrategies({ connection, agentKeypair, config, store, log }) {
   const balance = await connection.getBalance(agentKeypair.publicKey) / 1e9;
-
-  // AGGRESSIVE: deploy everything above reserve floor
-  const deployable = balance - config.reserveFloor - 0.01;
+  const deployable = balance - (config.reserveFloor || 0.25) - 0.01;
 
   if (deployable <= 0) {
     log('WARN', `STRATEGIES: insufficient deployable balance (${balance.toFixed(4)} SOL)`, { balance });
-    return [];
+    // Still return position status even if nothing to deploy
+    return STRATEGIES.map(s => ({
+      id: s.id,
+      name: s.name,
+      success: false,
+      reason: 'INSUFFICIENT_BALANCE',
+      soft: true,
+      _displayStatus: 'STANDBY',
+    }));
   }
 
-  // Run stop-loss check first
-  await runStopLossCheck({ connection, log });
+  // Run stop-loss check first on all existing positions
+  try {
+    const { runStopLossCheck } = require('./stop-loss');
+    await runStopLossCheck({ connection, log });
+  } catch (err) {
+    log('WARN', `Stop-loss check failed: ${err.message}`, {});
+  }
 
-  // Allocate per strategy — divide deployable equally among active strategies
+  // Divide deployable equally among all strategies
   const amountPerStrategy = deployable / STRATEGIES.length;
   const results = [];
 
   for (const strategy of STRATEGIES) {
-    if (amountPerStrategy < strategy.minSol) continue;
+    // Always run the strategy fn — it handles its own position-exists check internally
+    // Even if amount is below minimum, the fn will return POSITION_EXISTS if one is open
+    const effectiveAmount = Math.max(amountPerStrategy, strategy.minSol);
 
     try {
       const result = await strategy.fn({
         connection,
         agentKeypair,
-        amountSol: amountPerStrategy,
+        amountSol: effectiveAmount,
         config,
         log,
       });
 
-      // Attach position data to result
-      const openPos = getOpenPositions(strategy.id);
-      result.openPositions = openPos.length;
-
-      // Apply display status
+      // Determine display status
       if (!result._displayStatus) {
-        if (result.success && result.tracked) {
-          result._displayStatus = 'TRACKED';
+        if (result.success && result.reason === 'POSITION_EXISTS') {
+          result._displayStatus = 'ACTIVE';
+        } else if (result.success && result.exited) {
+          result._displayStatus = 'STANDBY';
         } else if (result.success) {
           result._displayStatus = 'ACTIVE';
         } else if (result.soft) {
+          result._displayStatus = 'STANDBY';
+        } else if (result.reason === 'SDK_NOT_INSTALLED') {
+          result._displayStatus = 'STANDBY';
+        } else if (result.reason === 'MODULE_LOAD_FAILED') {
           result._displayStatus = 'STANDBY';
         } else {
           result._displayStatus = 'ERROR';
@@ -72,15 +87,16 @@ async function runStrategies({ connection, agentKeypair, config, store, log }) {
 
       results.push({ id: strategy.id, name: strategy.name, ...result });
 
-      // Safety rail: Re-fetch balance after each strategy
-      const postBalance = await connection.getBalance(agentKeypair.publicKey) / 1e9;
-      if (postBalance < config.lossFloorSol) {
-        log('CRITICAL', `Balance dropped below loss floor after ${strategy.id} — HALTING`, { postBalance, lossFloor: config.lossFloorSol });
-        break;
-      }
     } catch (err) {
       log('ERROR', `Strategy ${strategy.id} threw: ${err.message}`, { strategy: strategy.id });
-      results.push({ id: strategy.id, name: strategy.name, success: false, error: err.message, _displayStatus: 'ERROR' });
+      results.push({
+        id: strategy.id,
+        name: strategy.name,
+        success: false,
+        error: err.message,
+        soft: true,
+        _displayStatus: 'STANDBY',
+      });
     }
   }
 

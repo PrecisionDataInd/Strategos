@@ -97,7 +97,7 @@ async function executeLeveragedYield({ connection, agentKeypair, amountSol, conf
       await connection.confirmTransaction(txid, 'confirmed');
 
       // Step 4: Swap borrowed USDC back to SOL via Jupiter
-      const swapRes = await fetchWithTimeout('https://api.jup.ag/swap/v1/quote?inputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&outputMint=So11111111111111111111111111111111111111112&amount=' + Math.floor(conservativeBorrowUsdc * 1e6) + '&slippageBps=50');
+      const swapRes = await fetchWithTimeout('https://lite-api.jup.ag/swap/v1/quote?inputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&outputMint=So11111111111111111111111111111111111111112&amount=' + Math.floor(conservativeBorrowUsdc * 1e6) + '&slippageBps=50');
       if (swapRes.ok) {
         const swapQuote = await swapRes.json();
         const solReceived = parseInt(swapQuote.outAmount || 0) / LAMPORTS_PER_SOL;
