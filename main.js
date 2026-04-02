@@ -8,6 +8,8 @@ const { startAgentLoop, stopAgentLoop, getAgentStatus } = require('./agent/loop'
 const { generateNovaBrief } = require('./agent/nova-engine');
 const { executeLiveSweep } = require('./agent/sweep-live');
 const { runStrategies, STRATEGIES } = require('./agent/strategies/index');
+const { getPositions } = require('./agent/positions');
+const { runHarvest } = require('./agent/harvest');
 
 const store = new Store();
 let mainWindow = null;
@@ -297,6 +299,15 @@ function registerIPC() {
   ipcMain.handle('strategies:getPositions', async () => {
     return store.get('strategyPositions') || {};
   });
+
+  // Phase 3a: Position + Harvest IPC handlers
+  ipcMain.handle('positions:getAll', () => getPositions());
+  ipcMain.handle('positions:getByStrategy', (_, id) => getPositions(id));
+  ipcMain.handle('harvest:runNow', async () => {
+    if (!connection || !agentKeypair) return { error: 'WALLET_NOT_CONFIGURED' };
+    return runHarvest({ connection, agentKeypair, log: logEntry, onComplete: null });
+  });
+  ipcMain.handle('harvest:getLastResult', () => store.get('lastHarvest', null));
 
   ipcMain.handle('window:minimize', () => mainWindow && mainWindow.minimize());
   ipcMain.handle('window:maximize', () => {

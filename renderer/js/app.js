@@ -25,6 +25,9 @@
   // Strategy ID to row index mapping
   const STRATEGY_IDS = ['staking', 'lending', 'liquidity', 'arbitrage', 'grid'];
 
+  // Phase 3a: Latest positions data
+  let latestPositions = {};
+
   // ---------------------------------------------------------------------------
   // DOM refs
   // ---------------------------------------------------------------------------
@@ -79,6 +82,12 @@
       btn.addEventListener('click', () => setRiskLevel(btn.dataset.risk));
     });
 
+    // Phase 3a: Harvest button
+    const btnHarvest = document.getElementById('btn-harvest-now');
+    if (btnHarvest) {
+      btnHarvest.addEventListener('click', runHarvestNow);
+    }
+
     // Start countdown timer
     startCountdown();
 
@@ -87,6 +96,7 @@
     window.strategos.on('log:entry', handleLogEntry);
     window.strategos.on('nova:brief', handleNovaBrief);
     window.strategos.on('agent:halted', handleAgentHalted);
+    window.strategos.on('harvest:complete', handleHarvestComplete);
 
     // Get initial agent status
     try {
@@ -187,6 +197,51 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Phase 3a: Harvest control
+  // ---------------------------------------------------------------------------
+  async function runHarvestNow() {
+    const btn = document.getElementById('btn-harvest-now');
+    if (!btn) return;
+    btn.textContent = 'HARVESTING...';
+    btn.disabled = true;
+    try {
+      const result = await window.strategos.harvest.runNow();
+      if (result && result.totalHarvestedSol > 0) {
+        btn.textContent = `HARVESTED ${result.totalHarvestedSol.toFixed(6)} SOL`;
+      } else {
+        btn.textContent = 'NO FEES TO COLLECT';
+      }
+    } catch (e) {
+      console.error('Harvest error:', e);
+      btn.textContent = 'HARVEST FAILED';
+    }
+    setTimeout(() => {
+      btn.textContent = 'RUN HARVEST NOW';
+      btn.disabled = false;
+    }, 3000);
+  }
+
+  function handleHarvestComplete(data) {
+    if (data && data.totalHarvestedSol > 0) {
+      LoggerUI.addEntry({
+        timestamp: Date.now(),
+        level: 'SWEEP',
+        message: `HARVEST: ${data.totalHarvestedSol.toFixed(6)} SOL collected`,
+      });
+
+      // Flash Session P&L card gold
+      const pnlCard = document.getElementById('session-pnl');
+      if (pnlCard) {
+        const card = pnlCard.closest('.metric-card');
+        if (card) {
+          card.classList.add('harvest-flash');
+          setTimeout(() => card.classList.remove('harvest-flash'), 2000);
+        }
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Event handlers
   // ---------------------------------------------------------------------------
   function handleAgentTick(data) {
@@ -214,7 +269,12 @@
       WalletUI.addSweptAmount(data.sweepResult.amount);
     }
 
-    // Phase 2: Update strategy matrix with live data
+    // Phase 3a: Store positions data
+    if (data.positions) {
+      latestPositions = data.positions;
+    }
+
+    // Phase 2/3a: Update strategy matrix with live data + positions
     if (data.strategyResults && data.strategyResults.length > 0) {
       updateStrategyMatrix(data.strategyResults);
     }
@@ -238,7 +298,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Phase 2: Strategy Matrix Update
+  // Phase 2/3a: Strategy Matrix Update
   // ---------------------------------------------------------------------------
   function updateStrategyMatrix(results) {
     const strategyRows = document.querySelectorAll('.strategy-row');
@@ -254,13 +314,23 @@
       const cells = row.querySelectorAll('div');
       if (cells.length < 6) return;
 
+      // Check position data for this strategy
+      const strategyPositions = latestPositions[result.id] || [];
+      const openPositions = strategyPositions.filter(p => p.status !== 'CLOSED');
+      const hasOpenPositions = openPositions.length > 0 || result.openPositions > 0;
+
       // Column 1 (Status badge)
       let badgeClass = 'badge dim';
       let badgeText = 'STANDBY';
 
-      if (result.success === true && result.note && result.note.includes('tracked')) {
+      if (hasOpenPositions || (result.success === true && result.reason === 'POSITION_EXISTS') || (result.success === true && result.reason === 'GRID_ACTIVE')) {
+        badgeClass = 'badge live';
+        badgeText = 'ACTIVE';
+        activeCount++;
+      } else if (result.success === true && result.note && result.note.includes('tracked')) {
         badgeClass = 'badge amber';
         badgeText = 'TRACKED';
+        activeCount++;
       } else if (result.success === true) {
         badgeClass = 'badge live';
         badgeText = 'ACTIVE';
@@ -276,12 +346,22 @@
         badgeText = 'STANDBY';
       }
 
-      // Count tracked as partially active
-      if (result.success === true && result.note && result.note.includes('tracked')) {
-        activeCount++;
-      }
-
       cells[1].innerHTML = '<span class="' + badgeClass + '">' + badgeText + '</span>';
+
+      // Add position count sub-label under strategy name
+      const nameCell = cells[0];
+      let posLabel = nameCell.querySelector('.strategy-pos-count');
+      if (hasOpenPositions) {
+        const posCount = openPositions.length || result.openPositions || 0;
+        if (!posLabel) {
+          posLabel = document.createElement('span');
+          posLabel.className = 'strategy-pos-count';
+          nameCell.appendChild(posLabel);
+        }
+        posLabel.textContent = 'POSITIONS: ' + posCount + ' open';
+      } else if (posLabel) {
+        posLabel.remove();
+      }
 
       // Column 2 (APY)
       if (result.apy) {
@@ -292,8 +372,17 @@
         cells[2].style.color = '';
       }
 
-      // Column 3 (Allocated)
-      if (result.amountSol !== undefined && result.success) {
+      // Column 3 (Allocated) — show real amount from position data
+      if (hasOpenPositions && openPositions.length > 0) {
+        const totalAllocated = openPositions.reduce((sum, p) => sum + (p.amountSol || 0), 0);
+        if (totalAllocated > 0) {
+          cells[3].textContent = '\u25CE ' + totalAllocated.toFixed(4);
+          cells[3].style.color = 'var(--bronze-light)';
+        } else if (result.amountSol !== undefined && result.success) {
+          cells[3].textContent = '\u25CE ' + result.amountSol.toFixed(4);
+          cells[3].style.color = 'var(--bronze-light)';
+        }
+      } else if (result.amountSol !== undefined && result.success) {
         cells[3].textContent = '\u25CE ' + result.amountSol.toFixed(4);
         cells[3].style.color = 'var(--bronze-light)';
       } else {
@@ -301,11 +390,15 @@
         cells[3].style.color = '';
       }
 
-      // Column 4 (Session P&L) — cumulative tracking
-      if (result.success && result.amountSol) {
-        // Simulate micro-gains for tracked strategies
+      // Column 4 (Session P&L) — cumulative tracking from positions
+      if (hasOpenPositions && openPositions.length > 0) {
+        const totalEarned = openPositions.reduce((sum, p) => sum + (p.totalHarvestedSol || p.earnedSol || p.msolGrowth || 0), 0);
+        if (totalEarned > 0) {
+          strategyPnL[result.id] = totalEarned;
+        }
+      } else if (result.success && result.amountSol) {
         if (result.note && result.note.includes('tracked')) {
-          strategyPnL[result.id] += result.amountSol * 0.00001; // tiny simulated accrual
+          strategyPnL[result.id] += result.amountSol * 0.00001;
         }
       }
       if (strategyPnL[result.id] > 0) {

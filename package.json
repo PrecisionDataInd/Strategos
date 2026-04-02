@@ -14,8 +14,12 @@
     "@solana/web3.js": "^1.95.4",
     "@anthropic-ai/sdk": "^0.30.0",
     "cross-fetch": "^4.0.0",
+    "decimal.js": "^10.4.3",
     "dotenv": "^16.4.5",
-    "electron-store": "^8.2.0"
+    "electron-store": "^8.2.0",
+    "@kamino-finance/klend-sdk": "^7.3.22",
+    "@orca-so/whirlpools-sdk": "^0.13.0",
+    "@orca-so/common-sdk": "^0.6.0"
   },
   "devDependencies": {
     "electron": "^33.0.0"

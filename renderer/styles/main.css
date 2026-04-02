@@ -326,3 +326,61 @@ html, body {
   margin-top: 0;
   border-top: none;
 }
+
+/* ==========================================================================
+   Phase 3a: Position badges & Harvest styles
+   ========================================================================== */
+
+.strategy-pos-count {
+  display: block;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  color: var(--gain-green);
+  letter-spacing: 0.05em;
+  margin-top: 2px;
+  opacity: 0.85;
+}
+
+.btn-harvest {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--bronze-dark);
+  color: var(--bronze-mid);
+  cursor: pointer;
+  border-radius: 2px;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.btn-harvest:hover {
+  background: rgba(200, 136, 85, 0.12);
+  border-color: var(--bronze-mid);
+  color: var(--bronze-light);
+}
+
+.btn-harvest:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.harvest-flash {
+  animation: harvestGlow 2s ease-out;
+}
+
+@keyframes harvestGlow {
+  0% { box-shadow: 0 0 12px rgba(232, 170, 120, 0.6); }
+  50% { box-shadow: 0 0 20px rgba(232, 170, 120, 0.4); }
+  100% { box-shadow: none; }
+}
+
+.badge.live {
+  color: var(--gain-green);
+  border-color: var(--gain-green);
+}
+
+.badge.error {
+  color: var(--loss-red);
+  border-color: var(--loss-red);
+}

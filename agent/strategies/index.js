@@ -3,6 +3,7 @@ const { executeLending } = require('./lending');
 const { executeLiquidity } = require('./liquidity');
 const { executeArbitrage } = require('./arbitrage');
 const { executeGrid } = require('./grid');
+const { getPositions, getOpenPositions } = require('../positions');
 
 // Strategy registry with risk tiers
 const STRATEGIES = [
@@ -49,6 +50,11 @@ async function runStrategies({ connection, agentKeypair, config, store, log }) {
         config,
         log,
       });
+
+      // Attach position data to result
+      const openPos = getOpenPositions(strategy.id);
+      result.openPositions = openPos.length;
+
       results.push({ id: strategy.id, ...result });
 
       // Safety rail 3: Re-fetch balance after each strategy

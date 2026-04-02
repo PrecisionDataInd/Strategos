@@ -1,3 +1,6 @@
+const { startHarvestTimer, stopHarvestTimer } = require('./harvest');
+const { getPositions } = require('./positions');
+
 let loopInterval = null;
 let running = false;
 let lastCheck = null;
@@ -23,7 +26,7 @@ function startAgentLoop(dependencies) {
   deps.addLogEntry({
     timestamp: Date.now(),
     level: 'INFO',
-    message: `Agent loop started \u2014 interval ${cfg.checkIntervalSeconds}s`,
+    message: `Agent loop started — interval ${cfg.checkIntervalSeconds}s`,
   });
 
   deps.emitToRenderer('agent:tick', {
@@ -31,6 +34,21 @@ function startAgentLoop(dependencies) {
     lastCheck,
     nextCheck: Date.now() + intervalMs,
   });
+
+  // Start harvest timer alongside main heartbeat
+  if (deps.connection && deps.agentKeypair) {
+    const harvestLog = (level, message) => {
+      deps.addLogEntry({ timestamp: Date.now(), level, message });
+    };
+    startHarvestTimer({
+      connection: deps.connection,
+      agentKeypair: deps.agentKeypair,
+      log: harvestLog,
+      onComplete: ({ totalHarvestedSol, results }) => {
+        deps.emitToRenderer('harvest:complete', { totalHarvestedSol, results });
+      },
+    });
+  }
 
   runTick();
 
@@ -56,7 +74,7 @@ async function runTick() {
     deps.addLogEntry({
       timestamp: Date.now(),
       level: 'HEARTBEAT',
-      message: `Tick \u2014 Agent: ${agentBalance.toFixed(4)} SOL | Vault: ${vaultBalance.toFixed(4)} SOL${sweepResult.swept ? ' | SWEEP TRIGGERED' : ''}`,
+      message: `Tick — Agent: ${agentBalance.toFixed(4)} SOL | Vault: ${vaultBalance.toFixed(4)} SOL${sweepResult.swept ? ' | SWEEP TRIGGERED' : ''}`,
     });
 
     // Phase 2: Run strategies after sweep check
@@ -95,6 +113,7 @@ async function runTick() {
       }
     }
 
+    // Emit tick with position data
     deps.emitToRenderer('agent:tick', {
       running: true,
       lastCheck,
@@ -103,6 +122,7 @@ async function runTick() {
       vaultBalance,
       sweepResult,
       strategyResults,
+      positions: getPositions(),
     });
   } catch (e) {
     console.error('Agent tick error:', e.message);
@@ -120,6 +140,7 @@ function stopAgentLoop() {
     loopInterval = null;
   }
   running = false;
+  stopHarvestTimer();
   if (deps) {
     deps.addLogEntry({
       timestamp: Date.now(),

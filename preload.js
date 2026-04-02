@@ -16,6 +16,14 @@ contextBridge.exposeInMainWorld('strategos', {
     getResults: () => ipcRenderer.invoke('strategies:getResults'),
     getPositions: () => ipcRenderer.invoke('strategies:getPositions'),
   },
+  positions: {
+    getAll: () => ipcRenderer.invoke('positions:getAll'),
+    getByStrategy: (id) => ipcRenderer.invoke('positions:getByStrategy', id),
+  },
+  harvest: {
+    runNow: () => ipcRenderer.invoke('harvest:runNow'),
+    getLastResult: () => ipcRenderer.invoke('harvest:getLastResult'),
+  },
   config: {
     get: () => ipcRenderer.invoke('config:get'),
     set: (key, value) => ipcRenderer.invoke('config:set', key, value),
@@ -39,7 +47,7 @@ contextBridge.exposeInMainWorld('strategos', {
     close: () => ipcRenderer.invoke('window:close'),
   },
   on: (channel, callback) => {
-    const validChannels = ['agent:tick', 'log:entry', 'nova:brief', 'agent:halted'];
+    const validChannels = ['agent:tick', 'log:entry', 'nova:brief', 'agent:halted', 'harvest:complete'];
     if (validChannels.includes(channel)) {
       ipcRenderer.on(channel, (_event, data) => callback(data));
     }
