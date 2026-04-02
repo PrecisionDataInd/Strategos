@@ -21,6 +21,13 @@ try {
   // SDK not installed
 }
 
+// Log SDK status on startup
+if (orcaAvailable) {
+  console.log('[STRATEGOS] Orca Whirlpool SDK loaded successfully');
+} else {
+  console.warn('[STRATEGOS] Orca Whirlpool SDK NOT available — liquidity strategy will skip gracefully');
+}
+
 const { PublicKey } = require('@solana/web3.js');
 const { savePosition, getOpenPositions } = require('../positions');
 

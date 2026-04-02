@@ -165,6 +165,12 @@ const NovaUI = {
       .replace(/```json[\s\S]*?```/g, '')
       .trim();
 
+    // Remove leading orphan bullets/asterisks before first strategy block
+    cleaned = cleaned.replace(/^[\s\*\u2022\-]+(?=##?\s+STRATEGY|(?:\*{0,2})CODENAME)/s, '').trim();
+
+    // Remove any lines that are ONLY an asterisk, bullet, or whitespace
+    cleaned = cleaned.replace(/^\s*[\*\u2022]\s*$/gm, '').trim();
+
     // Try structured parsing (handles both **FIELD:** markdown and plain FIELD: formats)
     const fieldPattern = /\*{0,2}(CODENAME):?\*{0,2}[:\s]+(.+)/i;
     const hasStructuredBlocks = fieldPattern.test(cleaned);

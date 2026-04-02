@@ -523,6 +523,17 @@
   border: 1px solid rgba(224, 96, 96, 0.3);
 }
 
+.badge.tracked {
+  background: rgba(200, 136, 85, 0.15);
+  color: var(--bronze-light);
+  border: 1px solid var(--bronze-dim);
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+
 /* ==========================================================================
    Strategy grid
    ========================================================================== */

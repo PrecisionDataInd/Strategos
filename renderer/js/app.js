@@ -379,16 +379,28 @@
       const openPositions = strategyPositions.filter(p => p.status !== 'CLOSED');
       const hasOpenPositions = openPositions.length > 0 || result.openPositions > 0;
 
-      // Column 1 (Status badge)
+      // Column 1 (Status badge) — use _displayStatus from strategy coordinator when available
       let badgeClass = 'badge dim';
       let badgeText = 'STANDBY';
 
-      if (hasOpenPositions || (result.success === true && result.reason === 'POSITION_EXISTS') || (result.success === true && result.reason === 'GRID_ACTIVE')) {
+      const displayStatus = result._displayStatus || null;
+
+      if (displayStatus === 'TRACKED') {
+        badgeClass = 'badge tracked';
+        badgeText = 'TRACKED';
+        activeCount++;
+      } else if (displayStatus === 'ACTIVE' || hasOpenPositions || (result.success === true && result.reason === 'POSITION_EXISTS') || (result.success === true && result.reason === 'GRID_ACTIVE')) {
         badgeClass = 'badge live';
         badgeText = 'ACTIVE';
         activeCount++;
-      } else if (result.success === true && result.note && result.note.includes('tracked')) {
-        badgeClass = 'badge amber';
+      } else if (displayStatus === 'STANDBY') {
+        badgeClass = 'badge dim';
+        badgeText = 'STANDBY';
+      } else if (displayStatus === 'ERROR') {
+        badgeClass = 'badge error';
+        badgeText = 'ERROR';
+      } else if (result.success === true && result.tracked) {
+        badgeClass = 'badge tracked';
         badgeText = 'TRACKED';
         activeCount++;
       } else if (result.success === true) {

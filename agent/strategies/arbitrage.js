@@ -70,7 +70,16 @@ async function executeArbitrage({ connection, agentKeypair, amountSol, config, l
     return { success: true, txid, amountSol, outputUSDC: quotedUSDC, strategy: 'jupiter-arb' };
 
   } catch (err) {
-    log('ERROR', `Arbitrage failed: ${err.message}`, { error: err.message });
+    if (
+      err.message === 'JUPITER_TIMEOUT' ||
+      err.message.includes('ENOTFOUND') ||
+      err.message.includes('ECONNREFUSED') ||
+      err.message.includes('fetch failed')
+    ) {
+      log('WARN', `ARB SKIPPED: Jupiter unreachable — ${err.message}`, { reason: err.message });
+      return { success: false, reason: 'API_UNREACHABLE', soft: true };
+    }
+    log('ERROR', `ARB TX FAILED: ${err.message}`, { error: err.message });
     return { success: false, error: err.message };
   }
 }

@@ -68,6 +68,23 @@ async function runStrategies({ connection, agentKeypair, config, store, log }) {
       const openPos = getOpenPositions(strategy.id);
       result.openPositions = openPos.length;
 
+      // Determine display status for the renderer badge
+      if (!result.success && result.soft === true) {
+        result._displayStatus = 'STANDBY';
+      } else if (!result.success && result.reason === 'SDK_NOT_INSTALLED') {
+        result._displayStatus = 'STANDBY';
+      } else if (result.success && result.tracked) {
+        result._displayStatus = 'TRACKED';
+      } else if (result.success && result.reason === 'POSITION_EXISTS') {
+        result._displayStatus = 'ACTIVE';
+      } else if (!result.success && result.reason === 'AMOUNT_TOO_SMALL') {
+        result._displayStatus = 'STANDBY';
+      } else if (!result.success) {
+        result._displayStatus = 'ERROR';
+      } else {
+        result._displayStatus = 'ACTIVE';
+      }
+
       results.push({ id: strategy.id, ...result });
 
       // Safety rail 3: Re-fetch balance after each strategy
