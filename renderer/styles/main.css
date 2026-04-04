@@ -484,6 +484,14 @@ html, body {
   50% { opacity: 0.5; }
 }
 
+.risk-portfolio-total {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: var(--cyan-hot);
+  margin-top: 6px;
+  cursor: default;
+}
+
 /* ==========================================================================
    Phase 3b: NOVA Execute Buttons & Action Cards
    ========================================================================== */

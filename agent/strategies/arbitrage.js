@@ -7,6 +7,11 @@ const SOL_MINT  = 'So11111111111111111111111111111111111111112';
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const FETCH_TIMEOUT_MS = 8000;
 
+const MIN_PROFIT_BPS = 30;        // Minimum 0.30% better than market to execute
+const ESTIMATED_FEE_SOL = 0.001;  // Approximate transaction fee in SOL
+const ESTIMATED_FEE_BPS = 10;     // Fee as basis points (adds to required spread)
+const TOTAL_MIN_SPREAD_BPS = MIN_PROFIT_BPS + ESTIMATED_FEE_BPS; // 40 bps total
+
 function fetchWithTimeout(url, options = {}) {
   return Promise.race([
     fetch(url, options),
@@ -53,12 +58,52 @@ async function executeArbitrage({ connection, agentKeypair, amountSol, config, l
   const priceImpact = parseFloat(quote.priceImpactPct || '0');
 
   log('INFO', `ARB SCAN: ${amountSol.toFixed(4)} SOL → ${quotedUSDC.toFixed(2)} USDC @ $${pricePerSol.toFixed(2)}/SOL | impact ${priceImpact.toFixed(4)}%`, {
-    amountSol, quotedUSDC, pricePerSol, priceImpact
+    amountSol, quotedUSDC, pricePerSol, priceImpact,
   });
 
   if (priceImpact > 0.5) {
     log('WARN', `ARB SKIPPED: price impact ${priceImpact.toFixed(3)}% too high`, { priceImpact });
     return { success: false, reason: 'PRICE_IMPACT_TOO_HIGH', soft: true, _displayStatus: 'STANDBY' };
+  }
+
+  // Step 2b: Profit check — only execute if quoted price beats market by MIN_PROFIT_BPS + fees
+  let marketPriceSol = null;
+  try {
+    const priceRes = await fetchWithTimeout(
+      'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd'
+    );
+    if (priceRes.ok) {
+      const priceData = await priceRes.json();
+      marketPriceSol = priceData?.solana?.usd;
+    }
+  } catch (_) {}
+
+  // If we couldn't get market price, use a conservative fallback check
+  if (marketPriceSol) {
+    const quotedPricePerSol = quotedUSDC / amountSol;
+    const spreadBps = Math.round(((quotedPricePerSol - marketPriceSol) / marketPriceSol) * 10000);
+
+    log('INFO', `ARB SPREAD CHECK: quoted $${quotedPricePerSol.toFixed(4)} vs market $${marketPriceSol.toFixed(4)} | spread ${spreadBps} bps | min required ${TOTAL_MIN_SPREAD_BPS} bps`, {
+      quotedPrice: quotedPricePerSol,
+      marketPrice: marketPriceSol,
+      spreadBps,
+      minRequired: TOTAL_MIN_SPREAD_BPS,
+    });
+
+    if (spreadBps < TOTAL_MIN_SPREAD_BPS) {
+      log('INFO', `ARB SKIPPED: spread ${spreadBps} bps below minimum ${TOTAL_MIN_SPREAD_BPS} bps — not profitable after fees`, {
+        spreadBps, minRequired: TOTAL_MIN_SPREAD_BPS
+      });
+      return {
+        success: false,
+        reason: 'INSUFFICIENT_SPREAD',
+        soft: true,
+        _displayStatus: 'STANDBY',
+        spreadBps,
+      };
+    }
+
+    log('INFO', `ARB OPPORTUNITY: ${spreadBps} bps spread — executing`, { spreadBps });
   }
 
   // Step 3: Build swap transaction

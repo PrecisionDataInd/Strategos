@@ -44,7 +44,10 @@
   let latestPositions = {};
 
   // Phase 3b: Risk manager state
-  let latestRiskStatus = { drawdownPct: 0, sessionHigh: 0, shouldHalt: false };
+  let latestRiskStatus = { drawdownPct: 0, sessionHigh: 0, shouldHalt: false, totalPortfolioSol: 0 };
+
+  // Portfolio breakdown from tick
+  let latestPortfolioBreakdown = null;
 
   // Phase 4: Cached price
   let cachedSolPrice = null;
@@ -334,6 +337,16 @@
       latestPositions = data.positions;
     }
 
+    // Update portfolio breakdown and risk display
+    if (data.portfolioBreakdown) {
+      latestPortfolioBreakdown = data.portfolioBreakdown;
+    }
+    if (data.riskStatus) {
+      latestRiskStatus = data.riskStatus;
+      updateRiskIndicator(data.riskStatus);
+      updatePortfolioTotalDisplay(data.riskStatus, latestPortfolioBreakdown);
+    }
+
     // Phase 2/3a: Update strategy matrix with live data + positions
     if (data.strategyResults && data.strategyResults.length > 0) {
       updateStrategyMatrix(data.strategyResults);
@@ -413,6 +426,18 @@
         statusEl.textContent = 'NOMINAL';
         statusEl.style.color = 'var(--gain-green)';
       }
+    }
+  }
+
+  function updatePortfolioTotalDisplay(riskStatus, portfolioBreakdown) {
+    const portfolioEl = document.getElementById('portfolio-total-sol');
+    if (!portfolioEl) return;
+
+    if (portfolioBreakdown) {
+      portfolioEl.textContent = '\u25CE ' + portfolioBreakdown.totalSol.toFixed(4) + ' TOTAL';
+      portfolioEl.title = 'SOL: ' + portfolioBreakdown.solOnly.toFixed(4) + ' + USDC: ' + portfolioBreakdown.usdcSol.toFixed(4) + ' + mSOL: ' + portfolioBreakdown.msolSol.toFixed(4);
+    } else if (riskStatus && riskStatus.totalPortfolioSol) {
+      portfolioEl.textContent = '\u25CE ' + riskStatus.totalPortfolioSol.toFixed(4) + ' TOTAL';
     }
   }
 
