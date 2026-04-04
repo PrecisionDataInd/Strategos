@@ -158,6 +158,10 @@
     initPriceDisplay();
     loadPortfolio();
 
+    // Phase 6: Tray + auto-launch integration
+    initTrayIntegration();
+    initAutoLaunch();
+
     // Get initial agent status
     try {
       const status = await window.strategos.agent.getStatus();
@@ -361,8 +365,75 @@
     }
     loadPortfolio();
 
+    // Phase 6: Update tray with agent status on each tick
+    updateTrayStatus(agentRunning);
+
     // Trigger radar ping
     triggerRadarPing();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phase 6: System Tray Integration
+  // ---------------------------------------------------------------------------
+  function updateTrayStatus(isRunning) {
+    if (window.strategos && window.strategos.tray) {
+      window.strategos.tray.updateStatus(isRunning ? 'ACTIVE' : 'HALTED');
+    }
+  }
+
+  function initTrayIntegration() {
+    if (!window.strategos || !window.strategos.tray) return;
+
+    window.strategos.tray.onStartAgent(() => {
+      window.strategos.agent.start();
+      agentRunning = true;
+      updateAgentUI();
+      updateTrayStatus(true);
+    });
+
+    window.strategos.tray.onHaltAgent(() => {
+      window.strategos.agent.stop();
+      agentRunning = false;
+      updateAgentUI();
+      updateTrayStatus(false);
+    });
+
+    window.strategos.tray.onManualSweep(() => {
+      window.strategos.sweep.manualSweep();
+    });
+
+    // Send initial status
+    updateTrayStatus(agentRunning);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phase 6: Auto-launch toggle
+  // ---------------------------------------------------------------------------
+  async function initAutoLaunch() {
+    if (!window.strategos || !window.strategos.autoLaunch) return;
+    try {
+      const enabled = await window.strategos.autoLaunch.get();
+      const toggle = document.getElementById('toggle-autolaunch');
+      if (toggle) {
+        toggle.checked = !!enabled;
+        toggle.addEventListener('change', (e) => toggleAutoLaunch(e.target.checked));
+      }
+    } catch (e) {
+      console.error('Failed to init auto-launch:', e);
+    }
+  }
+
+  async function toggleAutoLaunch(enabled) {
+    try {
+      await window.strategos.autoLaunch.set(enabled);
+      LoggerUI.addEntry({
+        timestamp: Date.now(),
+        level: 'INFO',
+        message: enabled ? 'AUTO-LAUNCH ENABLED' : 'AUTO-LAUNCH DISABLED',
+      });
+    } catch (e) {
+      console.error('Failed to toggle auto-launch:', e);
+    }
   }
 
   function handleLogEntry(entry) {

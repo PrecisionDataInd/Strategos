@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
 const Store = require('electron-store');
 const { Connection, Keypair, PublicKey, SystemProgram, Transaction, sendAndConfirmTransaction, LAMPORTS_PER_SOL } = require('@solana/web3.js');
@@ -69,7 +69,12 @@ const missingDeps = checkDependencies();
 
 const store = new Store();
 let mainWindow = null;
+let tray = null;
+let trayStatusUpdater = null;
 let connection = null;
+
+// Detect if launched from Windows startup (hidden mode)
+const isHiddenLaunch = process.argv.includes('--hidden');
 let agentKeypair = null;
 let vaultPublicKey = null;
 
@@ -465,6 +470,27 @@ function registerIPC() {
     });
   });
 
+  // Tray status updates from renderer
+  ipcMain.on('agent:status-update', (_, status) => {
+    if (trayStatusUpdater) trayStatusUpdater(status);
+  });
+
+  // Auto-launch on Windows startup
+  ipcMain.handle('autolaunch:get', () => store.get('autoLaunchEnabled', true));
+  ipcMain.handle('autolaunch:set', (_, enabled) => {
+    store.set('autoLaunchEnabled', enabled);
+    if (process.platform === 'win32') {
+      app.setLoginItemSettings({
+        openAtLogin: enabled,
+        openAsHidden: true,
+        name: 'Strategos',
+        path: process.execPath,
+        args: ['--hidden'],
+      });
+    }
+    return { success: true, enabled };
+  });
+
   ipcMain.handle('window:minimize', () => mainWindow && mainWindow.minimize());
   ipcMain.handle('window:maximize', () => {
     if (mainWindow) {
@@ -472,6 +498,84 @@ function registerIPC() {
     }
   });
   ipcMain.handle('window:close', () => mainWindow && mainWindow.close());
+}
+
+// ---------------------------------------------------------------------------
+// System Tray
+// ---------------------------------------------------------------------------
+function setupTray(win) {
+  const trayIconPath = path.join(__dirname, 'assets', 'strategos_256.png');
+  const trayIcon = nativeImage.createFromPath(trayIconPath).resize({ width: 16, height: 16 });
+
+  tray = new Tray(trayIcon);
+  tray.setToolTip('Strategos — Autonomous Field Agent');
+
+  function buildContextMenu(status) {
+    return Menu.buildFromTemplate([
+      {
+        label: 'STRATEGOS',
+        enabled: false,
+      },
+      { type: 'separator' },
+      {
+        label: 'Open Dashboard',
+        click: () => { win.show(); win.focus(); },
+      },
+      { type: 'separator' },
+      {
+        label: `Agent: ${status || 'UNKNOWN'}`,
+        enabled: false,
+      },
+      {
+        label: 'Start Agent',
+        click: () => { win.webContents.send('tray:start-agent'); },
+      },
+      {
+        label: 'Halt Agent',
+        click: () => { win.webContents.send('tray:halt-agent'); },
+      },
+      { type: 'separator' },
+      {
+        label: 'Manual Sweep',
+        click: () => { win.webContents.send('tray:manual-sweep'); },
+      },
+      { type: 'separator' },
+      {
+        label: 'Quit Strategos',
+        click: () => { app.isQuitting = true; app.quit(); },
+      },
+    ]);
+  }
+
+  tray.setContextMenu(buildContextMenu('UNKNOWN'));
+
+  tray.on('double-click', () => {
+    win.show();
+    win.focus();
+  });
+
+  function updateTrayStatus(status) {
+    tray.setContextMenu(buildContextMenu(status));
+    tray.setToolTip(`Strategos — Agent ${status || 'UNKNOWN'}`);
+  }
+
+  return { updateTrayStatus };
+}
+
+// ---------------------------------------------------------------------------
+// Auto-launch on Windows startup
+// ---------------------------------------------------------------------------
+function configureAutoLaunch() {
+  if (process.platform === 'win32') {
+    const autoLaunchEnabled = store.get('autoLaunchEnabled', true);
+    app.setLoginItemSettings({
+      openAtLogin: autoLaunchEnabled,
+      openAsHidden: true,
+      name: 'Strategos',
+      path: process.execPath,
+      args: ['--hidden'],
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -485,6 +589,7 @@ function createWindow() {
     minHeight: 760,
     frame: false,
     backgroundColor: '#0d0608',
+    show: !isHiddenLaunch,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -494,14 +599,42 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
-  mainWindow.on('closed', () => {
-    mainWindow = null;
+  // Set up system tray
+  const trayApi = setupTray(mainWindow);
+  trayStatusUpdater = trayApi.updateTrayStatus;
+
+  // Close to tray instead of quitting
+  mainWindow.on('close', (event) => {
+    if (!app.isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+
+      // Show tray notification first time
+      const hasShownTrayHint = store.get('hasShownTrayHint', false);
+      if (!hasShownTrayHint && tray) {
+        try {
+          tray.displayBalloon({
+            iconType: 'info',
+            title: 'Strategos is still running',
+            content: 'The agent continues operating in the background. Right-click the tray icon to manage it.',
+          });
+        } catch (_) {}
+        store.set('hasShownTrayHint', true);
+      }
+    }
   });
+
+  if (isHiddenLaunch) {
+    mainWindow.hide();
+  } else {
+    mainWindow.show();
+  }
 }
 
 app.whenReady().then(() => {
   initWallet();
   registerIPC();
+  configureAutoLaunch();
   createWindow();
 
   // Phase 4: Start price feed — emits price updates to renderer
@@ -542,9 +675,18 @@ app.whenReady().then(() => {
   }, 2000);
 });
 
-app.on('window-all-closed', () => {
+app.on('before-quit', () => {
+  app.isQuitting = true;
   stopAgentLoop();
-  app.quit();
+});
+
+app.on('window-all-closed', () => {
+  // Don't quit on window close — tray keeps app alive.
+  // Only quit when explicitly told via tray menu (Quit) or before-quit.
+  if (app.isQuitting) {
+    stopAgentLoop();
+    app.quit();
+  }
 });
 
 process.on('uncaughtException', (err) => {

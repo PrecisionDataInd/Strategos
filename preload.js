@@ -66,6 +66,16 @@ contextBridge.exposeInMainWorld('strategos', {
     maximize: () => ipcRenderer.invoke('window:maximize'),
     close: () => ipcRenderer.invoke('window:close'),
   },
+  tray: {
+    updateStatus: (status) => ipcRenderer.send('agent:status-update', status),
+    onStartAgent: (callback) => ipcRenderer.on('tray:start-agent', callback),
+    onHaltAgent: (callback) => ipcRenderer.on('tray:halt-agent', callback),
+    onManualSweep: (callback) => ipcRenderer.on('tray:manual-sweep', callback),
+  },
+  autoLaunch: {
+    get: () => ipcRenderer.invoke('autolaunch:get'),
+    set: (enabled) => ipcRenderer.invoke('autolaunch:set', enabled),
+  },
   on: (channel, callback) => {
     const validChannels = ['agent:tick', 'log:entry', 'nova:brief', 'agent:halted', 'harvest:complete', 'nova:actionResult', 'risk:status', 'price:update', 'unwind:progress'];
     if (validChannels.includes(channel)) {
