@@ -1,8 +1,19 @@
 const { startHarvestTimer, stopHarvestTimer } = require('./harvest');
 const { getPositions, getOpenPositions, savePosition } = require('./positions');
-const { initSession, recordBalance, checkDrawdown, resetSession, getTotalPortfolioValueSol } = require('./risk-manager');
+const {
+  initSession,
+  recordBalance,
+  checkDrawdown,
+  resetSession,
+  getTotalPortfolioValueSol,
+  shouldDailyReset,
+  performDailyReset,
+} = require('./risk-manager');
 const { getCachedPrice } = require('./price-feed');
 const { runStopLossCheck } = require('./strategies/stop-loss');
+const { recordFeeSpent, getBudgetStatus } = require('./fee-budget');
+const { recordStrategyResult } = require('./profitability-guard');
+const { resetPacing } = require('./deployment-pacer');
 
 let loopInterval = null;
 let running = false;
@@ -89,7 +100,6 @@ async function startAgentLoop(dependencies) {
     nextCheck: Date.now() + intervalMs,
   });
 
-  // Start harvest timer alongside main heartbeat
   if (deps.connection && deps.agentKeypair) {
     const harvestLog = (level, message) => {
       deps.addLogEntry({ timestamp: Date.now(), level, message });
@@ -119,11 +129,26 @@ async function runTick() {
   lastCheck = Date.now();
   nextCheck = lastCheck + intervalMs;
 
+  const logFn = (level, message) => {
+    deps.addLogEntry({ timestamp: Date.now(), level, message });
+  };
+
   try {
+    // Daily reset check — UTC midnight
+    if (shouldDailyReset() && deps.connection && deps.agentKeypair) {
+      try {
+        const currentBal = await deps.connection.getBalance(deps.agentKeypair.publicKey) / 1e9;
+        const breakdown = await getTotalPortfolioValueSol(deps.connection, deps.agentKeypair.publicKey, currentBal);
+        performDailyReset(breakdown.totalSol, logFn);
+        resetPacing();
+      } catch (err) {
+        logFn('WARN', `DAILY RESET failed: ${err.message}`, {});
+      }
+    }
+
     const agentBalance = await deps.getAgentBalance();
     const vaultBalance = await deps.getVaultBalance();
 
-    // Calculate total portfolio value including USDC and mSOL
     let portfolioBreakdown = null;
     let totalPortfolioSol = agentBalance;
     if (deps.connection && deps.agentKeypair) {
@@ -137,39 +162,33 @@ async function runTick() {
       } catch (_) {}
     }
 
-    // Phase 3b: Risk manager — init session, record balance, check drawdown
     initSession(totalPortfolioSol);
     recordBalance(totalPortfolioSol);
 
-    const logFnRisk = (level, message) => {
-      deps.addLogEntry({ timestamp: Date.now(), level, message });
-    };
-    const riskCheck = checkDrawdown(totalPortfolioSol, logFnRisk, portfolioBreakdown);
+    const riskCheck = checkDrawdown(totalPortfolioSol, logFn, portfolioBreakdown);
 
-    if (riskCheck.shouldHalt) {
+    // Full halt — stop everything
+    if (riskCheck.fullHalt) {
       haltedByRiskManager = true;
       deps.emitToRenderer('agent:halted', {
-        reason: 'DRAWDOWN_EXCEEDED',
+        reason: 'FULL_HALT',
         drawdownPct: riskCheck.drawdownPct,
         sessionHigh: riskCheck.sessionHigh,
         totalPortfolioSol,
         breakdown: portfolioBreakdown,
+        haltedTiers: riskCheck.haltedTiers,
       });
       deps.emitToRenderer('risk:status', riskCheck);
       stopAgentLoop();
       return;
     }
 
-    // Emit risk status to renderer each tick
     deps.emitToRenderer('risk:status', riskCheck);
 
     // Run stop-loss check before strategies
     if (deps.connection) {
       try {
-        const stopLossLog = (level, message) => {
-          deps.addLogEntry({ timestamp: Date.now(), level, message });
-        };
-        await runStopLossCheck({ connection: deps.connection, log: stopLossLog });
+        await runStopLossCheck({ connection: deps.connection, log: logFn });
       } catch (slErr) {
         console.error('Stop-loss check error:', slErr.message);
       }
@@ -183,19 +202,17 @@ async function runTick() {
       message: `Tick — Agent: ${agentBalance.toFixed(4)} SOL | Vault: ${vaultBalance.toFixed(4)} SOL${sweepResult.swept ? ' | SWEEP TRIGGERED' : ''}`,
     });
 
-    // Phase 2: Run strategies after sweep check
+    // Run strategies with tier halt awareness
     let strategyResults = [];
     if (deps.runStrategies && deps.connection && deps.agentKeypair) {
       try {
-        const logFn = (level, message) => {
-          deps.addLogEntry({ timestamp: Date.now(), level, message });
-        };
         strategyResults = await deps.runStrategies({
           connection: deps.connection,
           agentKeypair: deps.agentKeypair,
           config: cfg,
           store: deps.store,
           log: logFn,
+          haltedTiers: riskCheck.haltedTiers || [],
         });
       } catch (stratErr) {
         console.error('Strategy execution error:', stratErr.message);
@@ -207,22 +224,27 @@ async function runTick() {
       }
     }
 
-    // Check if Nova brief is due
+    // Record fees and per-strategy P&L for profitability guard / fee budget
+    for (const result of strategyResults) {
+      if (result.success && result.txid) {
+        const estimatedFeeSol = 0.0001;
+        recordFeeSpent(estimatedFeeSol);
+        recordStrategyResult(result.id, result.profitSol || 0, estimatedFeeSol);
+      }
+    }
+
     if (cfg.novaEnabled) {
       const novaTimestamp = deps.store.get('novaTimestamp') || 0;
       const novaDue = Date.now() - novaTimestamp > (cfg.novaBriefIntervalMinutes || 60) * 60000;
       if (novaDue) {
-        // Non-blocking — fire and forget
         deps.requestNewNovaBrief().catch((e) => {
           console.error('Nova brief error:', e.message);
         });
       }
     }
 
-    // Phase 4: Emit price data alongside tick
     const priceData = getCachedPrice();
 
-    // Emit tick with position data, price, and portfolio breakdown
     deps.emitToRenderer('agent:tick', {
       running: true,
       lastCheck,
@@ -238,9 +260,14 @@ async function runTick() {
       riskStatus: {
         drawdownPct: riskCheck.drawdownPct,
         sessionHigh: riskCheck.sessionHigh,
-        shouldHalt: riskCheck.shouldHalt,
+        fullHalt: riskCheck.fullHalt,
+        haltedTiers: riskCheck.haltedTiers || [],
+        inGracePeriod: riskCheck.inGracePeriod || false,
         totalPortfolioSol,
       },
+      feeBudget: getBudgetStatus(),
+      inGracePeriod: riskCheck.inGracePeriod || false,
+      haltedTiers: riskCheck.haltedTiers || [],
     });
   } catch (e) {
     console.error('Agent tick error:', e.message);

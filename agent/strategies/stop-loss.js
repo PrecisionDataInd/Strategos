@@ -1,4 +1,5 @@
 const { getPositions, closePosition, updatePosition } = require('../positions');
+const { registerStopLoss } = require('../cooldown-tracker');
 
 const STOP_LOSS_PCT = 0.05; // 5%
 
@@ -28,6 +29,12 @@ async function runStopLossCheck({ connection, log }) {
           exitDrawdownPct: drawdownPct,
           closedAt: new Date().toISOString(),
         });
+
+        registerStopLoss(strategyId);
+        log('WARN',
+          `COOLDOWN: ${strategyId} entering 30-minute cooldown after stop-loss`,
+          { strategyId }
+        );
 
         exits.push({ strategyId, positionId: pos.id, drawdownPct });
       }

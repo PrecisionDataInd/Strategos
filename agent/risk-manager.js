@@ -2,7 +2,11 @@ const Store = require('electron-store');
 const { PublicKey } = require('@solana/web3.js');
 const store = new Store({ name: 'strategos-risk' });
 
-const DRAWDOWN_HALT_PCT = 0.35; // 35% from session high triggers halt
+const DRAWDOWN_HALT_PCT = 0.35; // legacy single-tier limit (kept for compatibility)
+const TIER2_3_HALT_PCT = 0.15;
+const FULL_HALT_PCT = 0.25;
+const GRACE_PERIOD_TICKS = 3;
+const DAILY_RESET_HOUR = 0; // UTC midnight
 
 const USDC_MINT = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
 const MSOL_MINT = new PublicKey('mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So');
@@ -22,7 +26,6 @@ async function getTotalPortfolioValueSol(connection, agentPublicKey, solBalanceS
   let solPrice = null;
 
   try {
-    // Get SOL price for USDC conversion
     const priceRes = await fetchWithTimeout(
       'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd'
     );
@@ -35,18 +38,16 @@ async function getTotalPortfolioValueSol(connection, agentPublicKey, solBalanceS
   try {
     const { getAssociatedTokenAddress } = require('@solana/spl-token');
 
-    // Get USDC balance
     if (solPrice) {
       try {
         const usdcATA = await getAssociatedTokenAddress(USDC_MINT, agentPublicKey);
         const usdcBalance = await connection.getTokenAccountBalance(usdcATA);
         const usdcAmount = parseFloat(usdcBalance.value.uiAmount || 0);
-        usdcSol = usdcAmount / solPrice; // Convert USDC to SOL equivalent
+        usdcSol = usdcAmount / solPrice;
         totalSol += usdcSol;
       } catch (_) {}
     }
 
-    // Get mSOL balance (roughly 1:1 with SOL)
     try {
       const msolATA = await getAssociatedTokenAddress(MSOL_MINT, agentPublicKey);
       const msolBalance = await connection.getTokenAccountBalance(msolATA);
@@ -60,7 +61,6 @@ async function getTotalPortfolioValueSol(connection, agentPublicKey, solBalanceS
 }
 
 function initSession(currentBalanceSol) {
-  // Set session high on first call if not already set
   const existing = store.get('sessionHigh');
   if (!existing) {
     store.set('sessionHigh', currentBalanceSol);
@@ -82,13 +82,63 @@ function recordBalance(totalPortfolioSol) {
   return { sessionHigh };
 }
 
+function isInGracePeriod() {
+  const tickCount = store.get('tickCount', 0) || 0;
+  return tickCount < GRACE_PERIOD_TICKS;
+}
+
+function incrementTickCount() {
+  const count = (store.get('tickCount', 0) || 0) + 1;
+  store.set('tickCount', count);
+  return count;
+}
+
+function getTickCount() {
+  return store.get('tickCount', 0) || 0;
+}
+
+function shouldDailyReset() {
+  const lastReset = store.get('lastDailyReset', 0) || 0;
+  const now = new Date();
+  const today = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), DAILY_RESET_HOUR)
+  ).getTime();
+  return lastReset < today && now.getTime() >= today;
+}
+
+function performDailyReset(currentPortfolioSol, log) {
+  store.set('sessionHigh', currentPortfolioSol);
+  store.set('lastDailyReset', Date.now());
+  store.set('tickCount', 0);
+  log('INFO',
+    `DAILY RESET: new session baseline ${currentPortfolioSol.toFixed(4)} SOL`,
+    {}
+  );
+}
+
 function checkDrawdown(totalPortfolioSol, log, breakdown) {
+  incrementTickCount();
+
+  if (isInGracePeriod()) {
+    log('INFO',
+      `GRACE PERIOD: tick ${getTickCount()}/${GRACE_PERIOD_TICKS} — halt checks deferred`,
+      {}
+    );
+    return {
+      haltedTiers: [],
+      drawdownPct: 0,
+      fullHalt: false,
+      inGracePeriod: true,
+    };
+  }
+
   const sessionHigh = store.get('sessionHigh', totalPortfolioSol);
-  if (!sessionHigh || sessionHigh <= 0) return { shouldHalt: false, drawdownPct: 0 };
+  if (!sessionHigh || sessionHigh <= 0) {
+    return { haltedTiers: [], drawdownPct: 0, fullHalt: false };
+  }
 
   const drawdownPct = (sessionHigh - totalPortfolioSol) / sessionHigh;
 
-  // Log breakdown for transparency
   if (breakdown) {
     log('INFO', `PORTFOLIO VALUE: ${totalPortfolioSol.toFixed(4)} SOL total | ${breakdown.solOnly.toFixed(4)} SOL + ${breakdown.usdcSol.toFixed(4)} USDC-equiv + ${breakdown.msolSol.toFixed(4)} mSOL`, {
       total: totalPortfolioSol,
@@ -98,34 +148,74 @@ function checkDrawdown(totalPortfolioSol, log, breakdown) {
     });
   }
 
-  if (drawdownPct >= DRAWDOWN_HALT_PCT) {
+  if (drawdownPct >= FULL_HALT_PCT) {
     log('CRITICAL',
-      `RISK MANAGER: portfolio drawdown ${(drawdownPct * 100).toFixed(2)}% exceeds ${(DRAWDOWN_HALT_PCT * 100).toFixed(0)}% limit — HALTING AGENT`,
+      `FULL HALT: portfolio drawdown ${(drawdownPct * 100).toFixed(2)}% exceeds ${(FULL_HALT_PCT * 100).toFixed(0)}% — ALL STRATEGIES STOPPED`,
       { drawdownPct, sessionHigh, totalPortfolioSol }
     );
-    return { shouldHalt: true, drawdownPct, sessionHigh, totalPortfolioSol };
+    return {
+      haltedTiers: ['tier1', 'tier2', 'tier3'],
+      drawdownPct,
+      fullHalt: true,
+      sessionHigh,
+      totalPortfolioSol,
+    };
   }
 
-  if (drawdownPct >= 0.20) {
+  if (drawdownPct >= TIER2_3_HALT_PCT) {
     log('WARN',
-      `RISK MANAGER: portfolio drawdown ${(drawdownPct * 100).toFixed(2)}% — monitoring (halt triggers at ${(DRAWDOWN_HALT_PCT * 100).toFixed(0)}%)`,
-      { drawdownPct, sessionHigh, totalPortfolioSol }
+      `TIER HALT: drawdown ${(drawdownPct * 100).toFixed(2)}% exceeds ${(TIER2_3_HALT_PCT * 100).toFixed(0)}% — Tier 2 and Tier 3 halted, Tier 1 continues`,
+      { drawdownPct, sessionHigh }
+    );
+    return {
+      haltedTiers: ['tier2', 'tier3'],
+      drawdownPct,
+      fullHalt: false,
+      sessionHigh,
+      totalPortfolioSol,
+    };
+  }
+
+  if (drawdownPct >= 0.10) {
+    log('WARN',
+      `RISK: drawdown ${(drawdownPct * 100).toFixed(2)}% — monitoring (tier halt at ${(TIER2_3_HALT_PCT * 100).toFixed(0)}%)`,
+      { drawdownPct }
     );
   }
 
-  return { shouldHalt: false, drawdownPct, sessionHigh, totalPortfolioSol };
+  return {
+    haltedTiers: [],
+    drawdownPct,
+    fullHalt: false,
+    sessionHigh,
+    totalPortfolioSol,
+  };
 }
 
 function getRiskStatus() {
   return {
     sessionHigh: store.get('sessionHigh', 0),
     sessionStart: store.get('sessionStart', null),
+    tickCount: store.get('tickCount', 0),
   };
 }
 
 function resetSession(currentBalance) {
   store.set('sessionHigh', currentBalance);
   store.set('sessionStart', new Date().toISOString());
+  store.set('tickCount', 0);
 }
 
-module.exports = { initSession, recordBalance, checkDrawdown, getRiskStatus, resetSession, getTotalPortfolioValueSol };
+module.exports = {
+  initSession,
+  recordBalance,
+  checkDrawdown,
+  getRiskStatus,
+  resetSession,
+  getTotalPortfolioValueSol,
+  isInGracePeriod,
+  incrementTickCount,
+  getTickCount,
+  shouldDailyReset,
+  performDailyReset,
+};
