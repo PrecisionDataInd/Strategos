@@ -12,11 +12,11 @@ const ESTIMATED_FEE_SOL = 0.001;  // Approximate transaction fee in SOL
 const ESTIMATED_FEE_BPS = 10;     // Fee as basis points (adds to required spread)
 const TOTAL_MIN_SPREAD_BPS = MIN_PROFIT_BPS + ESTIMATED_FEE_BPS; // 40 bps total
 
-function fetchWithTimeout(url, options = {}) {
+function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
   return Promise.race([
     fetch(url, options),
     new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('JUPITER_TIMEOUT')), FETCH_TIMEOUT_MS)
+      setTimeout(() => reject(new Error('JUPITER_TIMEOUT')), timeoutMs)
     ),
   ]);
 }
@@ -67,19 +67,20 @@ async function executeArbitrage({ connection, agentKeypair, amountSol, config, l
   }
 
   // Step 2b: Profit check — only execute if quoted price beats market by MIN_PROFIT_BPS + fees
+  // Fetch CoinGecko market price for comparison (fail-open: skip check on network/429 errors)
   let marketPriceSol = null;
   try {
     const priceRes = await fetchWithTimeout(
-      'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd'
+      'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd',
+      {}, 6000
     );
-    if (priceRes.ok) {
+    if (priceRes && priceRes.ok) {
       const priceData = await priceRes.json();
       marketPriceSol = priceData?.solana?.usd;
     }
   } catch (_) {}
 
-  // If we couldn't get market price, use a conservative fallback check
-  if (marketPriceSol) {
+  if (marketPriceSol && marketPriceSol > 0) {
     const quotedPricePerSol = quotedUSDC / amountSol;
     const spreadBps = Math.round(((quotedPricePerSol - marketPriceSol) / marketPriceSol) * 10000);
 
