@@ -11,7 +11,7 @@ const { executeLeveragedYield } = safeRequire('./leveraged-yield',  'executeLeve
 const { runStopLossCheck }      = require('./stop-loss');
 const { getPositions, getOpenPositions } = require('../positions');
 
-const { getNextStrategyToDeploy, markDeploymentAttempted } = require('../deployment-pacer');
+const { markDeploymentAttempted } = require('../deployment-pacer');
 const { isInCooldown, getCooldownRemainingMs } = require('../cooldown-tracker');
 const { canSpendFees, getBudgetStatus } = require('../fee-budget');
 const { shouldHaltStrategy, getRollingPnL } = require('../profitability-guard');
@@ -52,13 +52,36 @@ async function runStrategies({ connection, agentKeypair, config, store, log, hal
     log('WARN', `Stop-loss check failed: ${err.message}`, {});
   }
 
-  // Build position map and pacing slot
   const existingPositions = {};
   for (const strategy of STRATEGIES) {
     existingPositions[strategy.id] = getOpenPositions(strategy.id);
   }
 
-  const nextToDeployId = getNextStrategyToDeploy(existingPositions);
+  const feeBudget = getBudgetStatus();
+  if (feeBudget.dailyExceeded || feeBudget.weeklyExceeded) {
+    log('WARN',
+      `FEE BUDGET EXCEEDED: daily ${feeBudget.dailySpent.toFixed(4)}/${feeBudget.dailyBudget} | weekly ${feeBudget.weeklySpent.toFixed(4)}/${feeBudget.weeklyBudget} — position checks only`,
+      feeBudget
+    );
+  }
+
+  // Track which strategies have soft-failed this tick — they're skipped
+  // for deployment but the pacer advances to the next eligible strategy
+  const softFailedThisTick = new Set();
+
+  function findNextDeploymentSlot(positions, softFailed) {
+    const { DEPLOYMENT_ORDER } = require('../deployment-pacer');
+    for (const strategyId of DEPLOYMENT_ORDER) {
+      if (softFailed.has(strategyId)) continue;
+      const strategyPositions = positions[strategyId] || [];
+      if (strategyPositions.length === 0) {
+        return strategyId;
+      }
+    }
+    return null;
+  }
+
+  let nextToDeployId = findNextDeploymentSlot(existingPositions, softFailedThisTick);
 
   if (nextToDeployId) {
     log('INFO',
@@ -72,14 +95,6 @@ async function runStrategies({ connection, agentKeypair, config, store, log, hal
     );
   }
 
-  const feeBudget = getBudgetStatus();
-  if (feeBudget.dailyExceeded || feeBudget.weeklyExceeded) {
-    log('WARN',
-      `FEE BUDGET EXCEEDED: daily ${feeBudget.dailySpent.toFixed(4)}/${feeBudget.dailyBudget} | weekly ${feeBudget.weeklySpent.toFixed(4)}/${feeBudget.weeklyBudget} — position checks only`,
-      feeBudget
-    );
-  }
-
   const perStrategyAllocation = deployable / STRATEGIES.length;
   const results = [];
 
@@ -87,12 +102,8 @@ async function runStrategies({ connection, agentKeypair, config, store, log, hal
     // Tier halt check
     if (haltedTiers && haltedTiers.includes(strategy.tier || 'tier2')) {
       results.push({
-        id: strategy.id,
-        name: strategy.name,
-        tier: strategy.tier,
-        success: false,
-        reason: 'TIER_HALTED',
-        soft: true,
+        id: strategy.id, name: strategy.name, tier: strategy.tier,
+        success: false, reason: 'TIER_HALTED', soft: true,
         _displayStatus: 'STANDBY',
       });
       continue;
@@ -102,14 +113,10 @@ async function runStrategies({ connection, agentKeypair, config, store, log, hal
     if (isInCooldown(strategy.id)) {
       const remainingMin = Math.ceil(getCooldownRemainingMs(strategy.id) / 60000);
       results.push({
-        id: strategy.id,
-        name: strategy.name,
-        tier: strategy.tier,
-        success: false,
-        reason: 'COOLDOWN',
+        id: strategy.id, name: strategy.name, tier: strategy.tier,
+        success: false, reason: 'COOLDOWN',
         cooldownMinutesRemaining: remainingMin,
-        soft: true,
-        _displayStatus: 'STANDBY',
+        soft: true, _displayStatus: 'STANDBY',
       });
       continue;
     }
@@ -122,39 +129,28 @@ async function runStrategies({ connection, agentKeypair, config, store, log, hal
         { strategy: strategy.id, loss }
       );
       results.push({
-        id: strategy.id,
-        name: strategy.name,
-        tier: strategy.tier,
-        success: false,
-        reason: 'PROFITABILITY_HALT',
-        rollingPnL: loss,
-        soft: true,
-        _displayStatus: 'STANDBY',
+        id: strategy.id, name: strategy.name, tier: strategy.tier,
+        success: false, reason: 'PROFITABILITY_HALT',
+        rollingPnL: loss, soft: true, _displayStatus: 'STANDBY',
       });
       continue;
     }
 
-    // Determine deployment eligibility
     const hasExistingPosition = existingPositions[strategy.id].length > 0;
     const isPacingSlot = strategy.id === nextToDeployId;
     const budgetExceeded = feeBudget.dailyExceeded || feeBudget.weeklyExceeded;
     const canDeploy = isPacingSlot && !budgetExceeded && !hasExistingPosition;
 
-    // Skip strategies with no position that aren't the pacing slot
+    // If strategy has no position and is not the pacing slot, defer
     if (!hasExistingPosition && !canDeploy) {
       results.push({
-        id: strategy.id,
-        name: strategy.name,
-        tier: strategy.tier,
-        success: false,
-        reason: 'WAITING_FOR_PACING_SLOT',
-        soft: true,
-        _displayStatus: 'STANDBY',
+        id: strategy.id, name: strategy.name, tier: strategy.tier,
+        success: false, reason: 'WAITING_FOR_PACING_SLOT',
+        soft: true, _displayStatus: 'STANDBY',
       });
       continue;
     }
 
-    // 0 amount → strategy fn will hit AMOUNT_TOO_SMALL but still report POSITION_EXISTS
     const targetAmount = canDeploy ? (perStrategyAllocation || 0.5) : 0;
 
     try {
@@ -166,40 +162,39 @@ async function runStrategies({ connection, agentKeypair, config, store, log, hal
         log,
       });
 
-      if (canDeploy) {
-        markDeploymentAttempted(strategy.id);
-      }
+      // If this was a deployment attempt and it soft-failed, advance the
+      // pacer to the next strategy and let it attempt deployment THIS tick
+      if (canDeploy && result.success === false && result.soft === true) {
+        softFailedThisTick.add(strategy.id);
+        log('INFO',
+          `PACING: ${strategy.id} soft-failed (${result.reason}) — advancing to next slot`,
+          { strategy: strategy.id, reason: result.reason }
+        );
 
-      if (!result._displayStatus) {
-        if (result.success && result.reason === 'POSITION_EXISTS') {
-          result._displayStatus = 'ACTIVE';
-        } else if (result.success && result.exited) {
-          result._displayStatus = 'STANDBY';
-        } else if (result.success) {
-          result._displayStatus = 'ACTIVE';
-        } else if (result.soft) {
-          result._displayStatus = 'STANDBY';
-        } else if (result.reason === 'SDK_NOT_INSTALLED') {
-          result._displayStatus = 'STANDBY';
-        } else if (result.reason === 'MODULE_LOAD_FAILED') {
-          result._displayStatus = 'STANDBY';
-        } else {
-          result._displayStatus = 'ERROR';
+        nextToDeployId = findNextDeploymentSlot(existingPositions, softFailedThisTick);
+        if (nextToDeployId) {
+          log('INFO',
+            `PACING: advanced to → ${nextToDeployId}`,
+            { nextToDeployId }
+          );
         }
       }
 
-      results.push({ id: strategy.id, name: strategy.name, tier: strategy.tier, ...result });
+      if (canDeploy && result.success) {
+        markDeploymentAttempted(strategy.id);
+      }
 
-    } catch (err) {
-      log('ERROR', `Strategy ${strategy.id} threw: ${err.message}`, { strategy: strategy.id });
       results.push({
-        id: strategy.id,
-        name: strategy.name,
-        tier: strategy.tier,
-        success: false,
-        error: err.message,
-        soft: true,
-        _displayStatus: 'STANDBY',
+        id: strategy.id, name: strategy.name, tier: strategy.tier,
+        ...result,
+      });
+    } catch (err) {
+      log('ERROR', `Strategy ${strategy.id} threw: ${err.message}`, { error: err.message });
+      softFailedThisTick.add(strategy.id);
+      results.push({
+        id: strategy.id, name: strategy.name, tier: strategy.tier,
+        success: false, error: err.message,
+        soft: true, _displayStatus: 'ERROR',
       });
     }
   }
