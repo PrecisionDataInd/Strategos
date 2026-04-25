@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; script-src 'self'; connect-src 'self' https://quote-api.jup.ag https://price.jup.ag;">
+  <title>STRATEGOS</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cinzel:wght@400;500;600;700&family=Share+Tech+Mono&display=swap">
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="stylesheet" href="styles/animations.css">
+  <link rel="stylesheet" href="styles/components.css">
+</head>
+<body>
+  <!-- Background layers -->
+  <div id="app-background"></div>
+  <div id="eagle-watermark">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120" fill="currentColor" width="100%" height="100%">
+      <path d="M100 45 Q80 20 30 8 Q35 15 38 22 Q20 12 5 10 Q15 22 25 30 Q12 25 2 28 Q18 35 32 38 Q22 36 10 40 Q28 42 40 43 Q32 44 20 50 Q38 48 50 47 L60 50 Z"/>
+      <path d="M100 45 Q120 20 170 8 Q165 15 162 22 Q180 12 195 10 Q185 22 175 30 Q188 25 198 28 Q182 35 168 38 Q178 36 190 40 Q172 42 160 43 Q168 44 180 50 Q162 48 150 47 L140 50 Z"/>
+      <path d="M90 44 Q92 38 100 32 Q108 38 110 44 L112 55 Q110 70 108 78 L100 90 L92 78 Q90 70 88 55 Z"/>
+      <path d="M95 34 Q96 26 100 22 Q104 26 105 34 Q104 36 100 38 Q96 36 95 34Z"/>
+      <path d="M105 28 Q112 27 116 30 Q112 31 108 32 Q106 31 105 28Z"/>
+      <circle cx="103" cy="29" r="1.2"/>
+      <path d="M92 78 Q88 90 80 105 Q90 98 95 92 L100 90 L105 92 Q110 98 120 105 Q112 90 108 78 Z"/>
+      <path d="M92 85 Q86 92 82 100 Q85 98 88 95 Q86 100 84 106 Q88 101 91 96 Q90 102 89 108 Q92 102 94 95 Z"/>
+      <path d="M108 85 Q114 92 118 100 Q115 98 112 95 Q114 100 116 106 Q112 101 109 96 Q110 102 111 108 Q108 102 106 95 Z"/>
+    </svg>
+  </div>
+
+  <!-- App root -->
+  <div id="app-root">
+    <!-- Custom Titlebar -->
+    <div id="titlebar">
+      <div id="titlebar-left">
+        <svg id="titlebar-eagle" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120" fill="currentColor">
+          <path d="M100 45 Q80 20 30 8 Q35 15 38 22 Q20 12 5 10 Q15 22 25 30 Q12 25 2 28 Q18 35 32 38 Q22 36 10 40 Q28 42 40 43 Q32 44 20 50 Q38 48 50 47 L60 50 Z"/>
+          <path d="M100 45 Q120 20 170 8 Q165 15 162 22 Q180 12 195 10 Q185 22 175 30 Q188 25 198 28 Q182 35 168 38 Q178 36 190 40 Q172 42 160 43 Q168 44 180 50 Q162 48 150 47 L140 50 Z"/>
+          <path d="M90 44 Q92 38 100 32 Q108 38 110 44 L112 55 Q110 70 108 78 L100 90 L92 78 Q90 70 88 55 Z"/>
+          <path d="M95 34 Q96 26 100 22 Q104 26 105 34 Q104 36 100 38 Q96 36 95 34Z"/>
+          <path d="M105 28 Q112 27 116 30 Q112 31 108 32 Q106 31 105 28Z"/>
+          <circle cx="103" cy="29" r="1.2"/>
+          <path d="M92 78 Q88 90 80 105 Q90 98 95 92 L100 90 L105 92 Q110 98 120 105 Q112 90 108 78 Z"/>
+        </svg>
+        <span id="titlebar-wordmark">STRATEGOS</span>
+        <div id="titlebar-separator"></div>
+        <span id="titlebar-subtitle">AUTONOMOUS FIELD AGENT v1.0</span>
+      </div>
+      <div id="titlebar-right">
+        <div class="price-badge">
+          <span class="price-badge-label">SOL</span>
+          <span class="price-badge-value" id="sol-price-display">$ &mdash;</span>
+          <span class="price-badge-change" id="sol-price-change"></span>
+        </div>
+        <div class="titlebar-status">
+          <span id="titlebar-status-dot" class="status-dot active"></span>
+          <span id="titlebar-status-label" class="status-label">AGENT ACTIVE</span>
+        </div>
+        <div class="window-controls">
+          <button class="window-btn" id="btn-minimize" title="Minimize">&#8212;</button>
+          <button class="window-btn" id="btn-maximize" title="Maximize">&#9633;</button>
+          <button class="window-btn close" id="btn-close" title="Close">&#10005;</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error Banners -->
+    <div id="error-banners"></div>
+    <div id="banner-risk-halt" class="error-banner critical" style="display:none;">
+      AGENT HALTED &mdash; Drawdown exceeded limit. Click START AGENT to resume.
+    </div>
+
+    <!-- Main three-column layout -->
+    <div id="main-layout">
+      <!-- LEFT SIDEBAR -->
+      <div id="left-sidebar" class="stagger-in">
+        <!-- SECTION 1: Command Status -->
+        <div class="section-header">Command Status</div>
+        <div class="radar-container scan-line-container">
+          <div class="radar-outer-ring"></div>
+          <div class="radar-crosshair"></div>
+          <div class="radar-center-dot"></div>
+          <div id="radar-ping" class="radar-ping"></div>
+          <div class="radar-scan-line"></div>
+        </div>
+        <div id="agent-status-text" class="agent-status-text active">AGENT ACTIVE</div>
+        <div id="agent-last-check" class="agent-check-info">LAST CHECK: —</div>
+        <div id="agent-next-check" class="agent-check-info">NEXT CHECK: —</div>
+        <button id="btn-agent-toggle" class="btn-bronze">HALT AGENT</button>
+        <button id="btn-unwind" class="unwind-btn">EMERGENCY UNWIND</button>
+
+        <!-- SECTION 2: Wallet Command -->
+        <div class="section-header">Wallet Command</div>
+        <div class="wallet-address" id="agent-address" title="Click to copy">
+          <span class="label">Agent Wallet</span>
+          <span class="addr-value">Loading...</span>
+        </div>
+        <div class="wallet-address" id="vault-address" title="Click to copy">
+          <span class="label">Vault Wallet</span>
+          <span class="addr-value">Loading...</span>
+        </div>
+        <div id="rpc-badge" class="rpc-badge connected">CONNECTED</div>
+
+        <!-- SECTION 3: Tactical Config -->
+        <div class="section-header">Tactical Config</div>
+        <div class="config-field">
+          <label>Sweep Threshold (SOL)</label>
+          <input type="number" id="cfg-sweep-threshold" step="0.1" min="0">
+        </div>
+        <div class="config-field">
+          <label>Reserve Floor (SOL)</label>
+          <input type="number" id="cfg-reserve-floor" step="0.05" min="0">
+        </div>
+        <div class="config-field">
+          <label>Check Interval (seconds)</label>
+          <input type="number" id="cfg-check-interval" step="10" min="10">
+        </div>
+        <div class="toggle-field">
+          <label>Auto-Sweep</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="cfg-auto-sweep">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+        <div class="toggle-field">
+          <label>Launch on Startup</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggle-autolaunch">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+        <button id="btn-commit-config" class="btn-bronze">Commit Config</button>
+
+        <!-- SECTION 4: Risk Posture -->
+        <div class="section-header">Risk Posture</div>
+        <div class="risk-buttons">
+          <button class="risk-btn" data-risk="conservative">Conservative</button>
+          <button class="risk-btn" data-risk="moderate">Moderate</button>
+          <button class="risk-btn active" data-risk="aggressive">Aggressive</button>
+        </div>
+        <div class="risk-hint">Phase 2 strategies will execute at this risk level</div>
+
+        <!-- SECTION 4b: Risk Monitor -->
+        <div class="section-header">Risk Monitor</div>
+        <div id="risk-indicator" class="risk-indicator">
+          <div class="risk-indicator-row">
+            <span class="risk-indicator-label">DRAWDOWN</span>
+            <span class="risk-drawdown-value">0.0%</span>
+          </div>
+          <div class="risk-bar">
+            <div class="risk-bar-fill normal" style="width: 0%"></div>
+          </div>
+          <div class="risk-indicator-row">
+            <span class="risk-indicator-label">STATUS</span>
+            <span class="risk-status-label" style="color: var(--gain-green)">NOMINAL</span>
+          </div>
+          <div class="risk-indicator-row">
+            <span class="risk-indicator-label">HALT THRESHOLD</span>
+            <span class="risk-indicator-value">35%</span>
+          </div>
+          <div id="portfolio-total-sol" class="risk-portfolio-total" title="SOL + USDC + mSOL">
+            &#9678; &mdash; TOTAL
+          </div>
+        </div>
+
+        <!-- SECTION 5: Nova Status -->
+        <div class="section-header">Nova Intelligence</div>
+        <div id="nova-sidebar-last" class="nova-last-brief">LAST BRIEF: —</div>
+        <button id="btn-nova-request" class="btn-cyan-outline">Request New Brief</button>
+      </div>
+
+      <!-- Column divider -->
+      <div class="column-divider"></div>
+
+      <!-- CENTER PANEL -->
+      <div id="center-panel">
+        <!-- Top Metric Cards -->
+        <div class="metric-cards stagger-in">
+          <!-- Card 1: Agent Wallet -->
+          <div class="metric-card shimmer-hover">
+            <div class="card-label">Agent Wallet</div>
+            <div class="card-value bronze" id="agent-balance">&#9678; 0.0000</div>
+            <div class="card-usd" id="agent-balance-usd">$ &mdash;</div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="threshold-progress" style="width: 0%"></div>
+            </div>
+            <div class="card-sub">THRESHOLD: <span id="threshold-display">2.0</span> SOL &nbsp;&middot;&nbsp; RESERVE: <span id="reserve-display">0.25</span> SOL</div>
+            <svg class="laurel-decoration" viewBox="0 0 40 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M2 8 Q8 2 14 6 Q10 4 8 2" stroke="var(--bronze-dark)" stroke-width="0.5" fill="none"/>
+              <circle cx="14" cy="6" r="0.8" fill="var(--bronze-dark)"/>
+              <path d="M38 8 Q32 2 26 6 Q30 4 32 2" stroke="var(--bronze-dark)" stroke-width="0.5" fill="none"/>
+              <circle cx="26" cy="6" r="0.8" fill="var(--bronze-dark)"/>
+            </svg>
+          </div>
+
+          <!-- Card 2: Vault -->
+          <div class="metric-card shimmer-hover">
+            <div class="card-label">Vault &mdash; Cold Storage</div>
+            <div class="card-value green" id="vault-balance">&#9678; 0.0000</div>
+            <div class="card-usd" id="vault-balance-usd">$ &mdash;</div>
+            <div class="card-sub">TOTAL SWEPT THIS SESSION: &#9678; <span id="session-swept">0.0000</span></div>
+            <div class="card-sub"><span class="badge dim">Agent has no spend access</span></div>
+            <svg class="laurel-decoration" viewBox="0 0 40 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M2 8 Q8 2 14 6 Q10 4 8 2" stroke="var(--bronze-dark)" stroke-width="0.5" fill="none"/>
+              <circle cx="14" cy="6" r="0.8" fill="var(--bronze-dark)"/>
+              <path d="M38 8 Q32 2 26 6 Q30 4 32 2" stroke="var(--bronze-dark)" stroke-width="0.5" fill="none"/>
+              <circle cx="26" cy="6" r="0.8" fill="var(--bronze-dark)"/>
+            </svg>
+          </div>
+
+          <!-- Card 3: Session P&L -->
+          <div class="metric-card shimmer-hover">
+            <div class="card-label">Session Gain/Loss</div>
+            <div class="card-value muted" id="session-pnl">&#9678; 0.0000</div>
+            <div class="card-usd" id="pnl-usd">$ &mdash;</div>
+            <div class="card-sub" id="session-pnl-pct">0.00%</div>
+            <div class="card-sub muted">OPENED AT: &#9678; <span id="session-baseline">0.0000</span></div>
+          </div>
+
+          <!-- Card 4: Sweep Command -->
+          <div class="metric-card shimmer-hover">
+            <div class="card-label">Sweep Trigger</div>
+            <div class="card-value muted" id="sweep-status">&#9678; 0.0000 UNTIL THRESHOLD</div>
+            <button id="btn-manual-sweep" class="btn-bronze" style="margin-top:8px">Execute Manual Sweep</button>
+            <div class="card-sub" style="margin-top:6px"><span class="badge live">Live Mode</span></div>
+          </div>
+        </div>
+
+        <!-- Strategy Intelligence Grid -->
+        <div class="strategy-matrix-panel stagger-in">
+          <div class="panel-header-row">
+            <span class="panel-title">STRATEGY MATRIX</span>
+            <span class="badge-active-count" id="strategy-active-count">0 / 8 STRATEGIES ACTIVE</span>
+          </div>
+          <table class="strategy-table" id="strategy-matrix-table">
+            <thead>
+              <tr>
+                <th class="col-name">STRATEGY</th>
+                <th class="col-status">STATUS</th>
+                <th class="col-apy">APY</th>
+                <th class="col-allocated">ALLOCATED</th>
+                <th class="col-pnl">SESSION P&amp;L</th>
+                <th class="col-risk">RISK</th>
+              </tr>
+            </thead>
+            <tbody id="strategy-matrix-tbody">
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Portfolio Panel (Phase 4) -->
+        <div class="portfolio-panel stagger-in" id="portfolio-panel">
+          <div class="panel-header-row">
+            <span class="panel-title">PORTFOLIO POSITIONS</span>
+            <div class="panel-header-actions">
+              <span class="portfolio-total-usd" id="portfolio-total-usd">DEPLOYED: $ &mdash;</span>
+              <button class="panel-action-btn" id="btn-export-csv">EXPORT CSV &#8595;</button>
+              <button class="panel-action-btn" id="btn-send-report">SEND REPORT &#8599;</button>
+            </div>
+          </div>
+
+          <!-- Positions Table -->
+          <div class="portfolio-section-label">OPEN POSITIONS</div>
+          <div class="portfolio-table-wrap">
+            <table class="portfolio-table" id="positions-table">
+              <thead>
+                <tr>
+                  <th>STRATEGY</th>
+                  <th>ENTRY</th>
+                  <th>CURRENT VALUE</th>
+                  <th>USD VALUE</th>
+                  <th>UNREALIZED</th>
+                  <th>APY</th>
+                  <th>AGE</th>
+                  <th>STATUS</th>
+                </tr>
+              </thead>
+              <tbody id="positions-tbody">
+                <tr class="portfolio-empty-row">
+                  <td colspan="8">Loading positions...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Transaction History -->
+          <div class="portfolio-section-label" style="margin-top: 16px;">
+            TRANSACTION HISTORY
+            <input type="text" id="tx-filter" placeholder="Filter by strategy or type..." class="tx-filter-input">
+          </div>
+          <div class="portfolio-table-wrap" style="max-height: 200px; overflow-y: auto;">
+            <table class="portfolio-table" id="transactions-table">
+              <thead>
+                <tr>
+                  <th>TIME</th>
+                  <th>STRATEGY</th>
+                  <th>TYPE</th>
+                  <th>AMOUNT</th>
+                  <th>TXID</th>
+                </tr>
+              </thead>
+              <tbody id="transactions-tbody">
+                <tr class="portfolio-empty-row">
+                  <td colspan="5">No transactions recorded yet</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Nova Intelligence Panel -->
+        <div class="nova-panel stagger-in">
+          <div class="nova-header">
+            <span class="nova-dot"></span>
+            <h2>NOVA &mdash; Novel Opportunity Intelligence</h2>
+          </div>
+          <div class="nova-subheader">AI-generated unconventional strategies for non-standard alpha capture</div>
+          <div class="nova-brief-content" id="nova-brief-content">
+            <span class="nova-loading blink-cursor">ACCESSING INTELLIGENCE NETWORK...</span>
+          </div>
+          <div class="nova-footer">
+            <span class="nova-timestamp" id="nova-brief-timestamp">BRIEF GENERATED: &mdash;</span>
+            <button id="btn-nova-intel" class="btn-cyan-outline">Request New Intel</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Column divider -->
+      <div class="column-divider"></div>
+
+      <!-- RIGHT PANEL: Mission Log -->
+      <div id="right-panel" class="stagger-in">
+        <div class="log-header">
+          <div>
+            <h2 style="display:inline">Mission Log</h2>
+            <span class="log-count-badge" id="log-count">0</span>
+          </div>
+          <button id="btn-harvest-now" class="btn-harvest">RUN HARVEST NOW</button>
+          <button id="btn-purge-log" class="btn-cyan-outline">Purge Log</button>
+        </div>
+        <div id="log-entries" class="log-entries">
+          <div class="log-empty" id="log-empty-state">
+            <svg class="log-empty-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120" fill="currentColor">
+              <path d="M100 45 Q80 20 30 8 Q35 15 38 22 Q20 12 5 10 Q15 22 25 30 Q12 25 2 28 Q18 35 32 38 Q22 36 10 40 Q28 42 40 43 Q32 44 20 50 Q38 48 50 47 L60 50 Z"/>
+              <path d="M100 45 Q120 20 170 8 Q165 15 162 22 Q180 12 195 10 Q185 22 175 30 Q188 25 198 28 Q182 35 168 38 Q178 36 190 40 Q172 42 160 43 Q168 44 180 50 Q162 48 150 47 L140 50 Z"/>
+              <path d="M90 44 Q92 38 100 32 Q108 38 110 44 L112 55 Q110 70 108 78 L100 90 L92 78 Q90 70 88 55 Z"/>
+              <path d="M95 34 Q96 26 100 22 Q104 26 105 34 Q104 36 100 38 Q96 36 95 34Z"/>
+              <path d="M105 28 Q112 27 116 30 Q112 31 108 32 Q106 31 105 28Z"/>
+              <circle cx="103" cy="29" r="1.2"/>
+            </svg>
+            <div class="log-empty-text">AWAITING FIRST CONTACT</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unwind Confirm Modal -->
+  <div id="unwind-modal" class="unwind-modal" style="display:none;">
+    <div class="unwind-modal-box">
+      <div class="unwind-modal-header">
+        <span class="unwind-modal-icon">&#9888;</span>
+        <span class="unwind-modal-title">EMERGENCY UNWIND</span>
+      </div>
+      <div class="unwind-modal-body">
+        <p>This will close ALL positions, convert assets to SOL, and sweep your full balance to the vault wallet.</p>
+        <p>This operation cannot be undone. Estimated time: 2-5 minutes.</p>
+        <div class="unwind-checklist">
+          <div>&#9678; Unstake all mSOL &rarr; SOL</div>
+          <div>&#9678; Withdraw lending deposits</div>
+          <div>&#9678; Close LP positions</div>
+          <div>&#9678; Cancel grid orders</div>
+          <div>&#9678; Convert USDC &rarr; SOL</div>
+          <div>&#9678; Sweep full balance to vault</div>
+        </div>
+      </div>
+      <div class="unwind-modal-actions">
+        <button class="unwind-cancel-btn" id="btn-unwind-cancel">CANCEL</button>
+        <button class="unwind-confirm-btn" id="btn-unwind-confirm">CONFIRM UNWIND</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unwind Progress Overlay -->
+  <div id="unwind-progress" class="unwind-progress" style="display:none;">
+    <div class="unwind-progress-box">
+      <div class="unwind-progress-title">UNWIND IN PROGRESS</div>
+      <div class="unwind-progress-subtitle">Do not close Strategos</div>
+      <div id="unwind-steps" class="unwind-steps"></div>
+      <div id="unwind-complete-msg" class="unwind-complete-msg" style="display:none;"></div>
+      <button id="unwind-done-btn" class="unwind-cancel-btn" style="display:none;">CLOSE</button>
+    </div>
+  </div>
+
+  <script src="js/wallet.js"></script>
+  <script src="js/sweep.js"></script>
+  <script src="js/logger.js"></script>
+  <script src="js/nova.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

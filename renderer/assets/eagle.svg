@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120" fill="currentColor">
+  <!-- Left wing -->
+  <path d="M100 45 Q80 20 30 8 Q35 15 38 22 Q20 12 5 10 Q15 22 25 30 Q12 25 2 28 Q18 35 32 38 Q22 36 10 40 Q28 42 40 43 Q32 44 20 50 Q38 48 50 47 L60 50 Z"/>
+  <!-- Right wing (mirrored) -->
+  <path d="M100 45 Q120 20 170 8 Q165 15 162 22 Q180 12 195 10 Q185 22 175 30 Q188 25 198 28 Q182 35 168 38 Q178 36 190 40 Q172 42 160 43 Q168 44 180 50 Q162 48 150 47 L140 50 Z"/>
+  <!-- Body -->
+  <path d="M90 44 Q92 38 100 32 Q108 38 110 44 L112 55 Q110 70 108 78 L100 90 L92 78 Q90 70 88 55 Z"/>
+  <!-- Head -->
+  <path d="M95 34 Q96 26 100 22 Q104 26 105 34 Q104 36 100 38 Q96 36 95 34Z"/>
+  <!-- Beak (facing right) -->
+  <path d="M105 28 Q112 27 116 30 Q112 31 108 32 Q106 31 105 28Z"/>
+  <!-- Eye -->
+  <circle cx="103" cy="29" r="1.2"/>
+  <!-- Tail feathers -->
+  <path d="M92 78 Q88 90 80 105 Q90 98 95 92 L100 90 L105 92 Q110 98 120 105 Q112 90 108 78 Z"/>
+  <!-- Talons left -->
+  <path d="M92 85 Q86 92 82 100 Q85 98 88 95 Q86 100 84 106 Q88 101 91 96 Q90 102 89 108 Q92 102 94 95 Z"/>
+  <!-- Talons right -->
+  <path d="M108 85 Q114 92 118 100 Q115 98 112 95 Q114 100 116 106 Q112 101 109 96 Q110 102 111 108 Q108 102 106 95 Z"/>
+  <!-- Wing detail lines -->
+  <path d="M60 50 Q72 42 85 44" fill="none" stroke="currentColor" stroke-width="0.5" opacity="0.4"/>
+  <path d="M55 48 Q70 38 82 42" fill="none" stroke="currentColor" stroke-width="0.5" opacity="0.3"/>
+  <path d="M140 50 Q128 42 115 44" fill="none" stroke="currentColor" stroke-width="0.5" opacity="0.4"/>
+  <path d="M145 48 Q130 38 118 42" fill="none" stroke="currentColor" stroke-width="0.5" opacity="0.3"/>
+</svg>

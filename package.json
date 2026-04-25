@@ -1,0 +1,65 @@
+{
+  "name": "strategos",
+  "version": "1.0.0",
+  "description": "Autonomous Solana DeFi Agent — STRATEGOS",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "rebuild": "electron-rebuild",
+    "build": "electron-builder --win nsis"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0",
+    "@coral-xyz/anchor": "^0.30.0",
+    "@marinade.finance/marinade-ts-sdk": "^5.0.18",
+    "@orca-so/common-sdk": "^0.6.0",
+    "@orca-so/whirlpools-sdk": "^0.13.0",
+    "@raydium-io/raydium-sdk-v2": "^2.0.0-rc.20",
+    "@solana/spl-token": "^0.4.6",
+    "@solana/web3.js": "^1.95.4",
+    "@solendprotocol/solend-sdk": "^0.14.26",
+    "cross-fetch": "^4.0.0",
+    "decimal.js": "^10.4.3",
+    "dotenv": "^16.4.5",
+    "electron-store": "^8.2.0",
+    "jito-ts": "^3.0.0",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.9.0"
+  },
+  "devDependencies": {
+    "electron": "^28.3.3",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.strategos.agent",
+    "productName": "Strategos",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!dist/**",
+      "!node_modules/.cache/**",
+      "!.env"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/strategos.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Strategos",
+      "include": "installer.nsh"
+    }
+  }
+}

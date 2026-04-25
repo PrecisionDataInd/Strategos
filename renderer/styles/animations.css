@@ -1,0 +1,193 @@
+/* ==========================================================================
+   STRATEGOS — Animations
+   ========================================================================== */
+
+/* 1. Scan line pulse — sweeps top to bottom */
+@keyframes scanLine {
+  0% { transform: translateY(-100%); opacity: 0; }
+  10% { opacity: 0.7; }
+  90% { opacity: 0.7; }
+  100% { transform: translateY(400%); opacity: 0; }
+}
+
+.scan-line-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.scan-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--cyan-hot);
+  box-shadow: 0 0 6px var(--cyan-hot), 0 0 12px var(--cyan-mid);
+  animation: scanLine 3s linear infinite;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* 2. Crosshair rotate */
+@keyframes crosshairRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.crosshair-outer {
+  animation: crosshairRotate 20s linear infinite;
+}
+
+/* 3. Radar ping */
+@keyframes radarPing {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(3.5); opacity: 0; }
+}
+
+.radar-ping {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1px solid var(--cyan-hot);
+  top: 50%;
+  left: 50%;
+  margin-top: -3px;
+  margin-left: -3px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.radar-ping.active {
+  animation: radarPing 1.5s ease-out forwards;
+}
+
+/* 4. Bronze shimmer on hover */
+@keyframes bronzeShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shimmer-hover {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer-hover::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    120deg,
+    transparent 0%,
+    transparent 40%,
+    rgba(212, 149, 106, 0.08) 50%,
+    transparent 60%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.shimmer-hover:hover::after {
+  opacity: 1;
+  animation: bronzeShimmer 0.6s ease-out forwards;
+}
+
+/* 5. Column glow */
+@keyframes columnGlow {
+  0%, 100% { box-shadow: 0 0 6px rgba(0, 68, 85, 0.3); }
+  50% { box-shadow: 0 0 10px rgba(0, 68, 85, 0.6); }
+}
+
+/* 6. Log entry slide in */
+@keyframes logSlideIn {
+  from {
+    transform: translateX(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.log-entry-new {
+  animation: logSlideIn 200ms ease-out forwards;
+}
+
+/* 7. Page load stagger */
+@keyframes panelFadeUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.stagger-in {
+  opacity: 0;
+  animation: panelFadeUp 0.5s ease-out forwards;
+}
+
+.stagger-in:nth-child(1) { animation-delay: 0ms; }
+.stagger-in:nth-child(2) { animation-delay: 150ms; }
+.stagger-in:nth-child(3) { animation-delay: 300ms; }
+.stagger-in:nth-child(4) { animation-delay: 450ms; }
+
+/* Balance flash */
+@keyframes balanceFlash {
+  0% { color: var(--cyan-hot); }
+  100% { color: inherit; }
+}
+
+.balance-flash {
+  animation: balanceFlash 0.3s ease-out forwards;
+}
+
+/* Blink cursor for loading states */
+@keyframes blinkCursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.blink-cursor::after {
+  content: '█';
+  animation: blinkCursor 1s step-end infinite;
+  color: var(--cyan-hot);
+  margin-left: 2px;
+}
+
+/* Threshold pulse */
+@keyframes thresholdPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.threshold-pulse {
+  animation: thresholdPulse 1.5s ease-in-out infinite;
+}
+
+/* Nova dot pulse */
+@keyframes novaDotPulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 4px var(--cyan-hot); }
+  50% { opacity: 0.4; box-shadow: 0 0 8px var(--cyan-hot); }
+}
+
+.nova-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cyan-hot);
+  animation: novaDotPulse 2s ease-in-out infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+}

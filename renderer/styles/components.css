@@ -1,0 +1,949 @@
+/* ==========================================================================
+   STRATEGOS — Components
+   ========================================================================== */
+
+/* ==========================================================================
+   Command Status — Radar/Crosshair
+   ========================================================================== */
+
+.radar-container {
+  width: 60px;
+  height: 60px;
+  position: relative;
+  margin: 8px auto 12px;
+}
+
+.radar-outer-ring {
+  position: absolute;
+  top: 0; left: 0;
+  width: 60px;
+  height: 60px;
+  border: 1px solid var(--bronze-mid);
+  border-radius: 50%;
+  animation: crosshairRotate 20s linear infinite;
+}
+
+.radar-outer-ring::before,
+.radar-outer-ring::after {
+  content: '';
+  position: absolute;
+  background: var(--bronze-mid);
+}
+
+.radar-outer-ring::before {
+  width: 6px; height: 1px;
+  top: 50%; left: 0;
+  margin-top: -0.5px;
+}
+
+.radar-outer-ring::after {
+  width: 6px; height: 1px;
+  top: 50%; right: 0;
+  margin-top: -0.5px;
+}
+
+.radar-crosshair {
+  position: absolute;
+  top: 0; left: 0;
+  width: 60px;
+  height: 60px;
+}
+
+.radar-crosshair::before {
+  content: '';
+  position: absolute;
+  top: 50%; left: 10px; right: 10px;
+  height: 1px;
+  background: var(--cyan-hot);
+  opacity: 0.4;
+}
+
+.radar-crosshair::after {
+  content: '';
+  position: absolute;
+  left: 50%; top: 10px; bottom: 10px;
+  width: 1px;
+  background: var(--cyan-hot);
+  opacity: 0.4;
+}
+
+.radar-center-dot {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 6px; height: 6px;
+  margin: -3px 0 0 -3px;
+  background: var(--cyan-hot);
+  border-radius: 50%;
+  box-shadow: 0 0 6px var(--cyan-hot);
+  z-index: 2;
+}
+
+.radar-scan-line {
+  position: absolute;
+  left: 5px; right: 5px;
+  height: 1px;
+  background: var(--cyan-hot);
+  box-shadow: 0 0 4px var(--cyan-hot);
+  animation: scanLine 3s linear infinite;
+  z-index: 1;
+}
+
+/* ==========================================================================
+   Agent Status Text
+   ========================================================================== */
+
+.agent-status-text {
+  text-align: center;
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.agent-status-text.active { color: var(--gain-green); }
+.agent-status-text.halted { color: var(--loss-red); }
+
+.agent-check-info {
+  text-align: center;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
+
+.btn-bronze {
+  display: block;
+  width: 100%;
+  padding: 8px 14px;
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  background: linear-gradient(180deg, #2a1c14 0%, #251811 100%);
+  border: 1px solid var(--bronze-dark);
+  border-top-color: var(--bronze-light);
+  border-bottom-color: var(--bronze-dark);
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  text-align: center;
+  margin-top: 10px;
+}
+
+.btn-bronze:hover {
+  border-color: var(--bronze-mid);
+  box-shadow: 0 0 8px rgba(176, 114, 72, 0.3);
+}
+
+.btn-bronze:active {
+  background: linear-gradient(180deg, #201510 0%, #1a1010 100%);
+}
+
+.btn-cyan-outline {
+  display: inline-block;
+  padding: 5px 12px;
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cyan-mid);
+  background: transparent;
+  border: 1px solid var(--cyan-dim);
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, box-shadow 0.2s;
+}
+
+.btn-cyan-outline:hover {
+  border-color: var(--cyan-mid);
+  color: var(--cyan-hot);
+  box-shadow: 0 0 8px var(--cyan-dim);
+}
+
+/* ==========================================================================
+   Wallet addresses
+   ========================================================================== */
+
+.wallet-address {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px 0;
+  transition: color 0.15s;
+}
+
+.wallet-address:hover {
+  color: var(--cyan-hot);
+}
+
+.wallet-address .label {
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.rpc-badge {
+  display: inline-block;
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: 2px;
+  margin-top: 8px;
+}
+
+.rpc-badge.connected {
+  background: rgba(0, 238, 255, 0.1);
+  color: var(--cyan-mid);
+  border: 1px solid var(--cyan-dim);
+}
+
+.rpc-badge.offline {
+  background: rgba(224, 96, 96, 0.15);
+  color: var(--loss-red);
+  border: 1px solid rgba(224, 96, 96, 0.3);
+}
+
+/* ==========================================================================
+   Config inputs
+   ========================================================================== */
+
+.config-field {
+  margin-bottom: 10px;
+}
+
+.config-field label {
+  display: block;
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.config-field input[type="number"],
+.config-field input[type="text"] {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--bronze-dim);
+  color: var(--text-primary);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.config-field input:focus {
+  border-color: var(--cyan-mid);
+}
+
+/* Military toggle switch */
+.toggle-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.toggle-field label {
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 40px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-track {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--bronze-dim);
+  border-radius: 2px;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.toggle-switch input:checked + .toggle-track {
+  background: var(--cyan-dim);
+  border-color: var(--cyan-mid);
+}
+
+.toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: var(--bronze-dark);
+  border-radius: 1px;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.toggle-switch input:checked + .toggle-track::after {
+  transform: translateX(20px);
+  background: var(--cyan-hot);
+}
+
+/* ==========================================================================
+   Risk posture buttons
+   ========================================================================== */
+
+.risk-buttons {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.risk-btn {
+  flex: 1;
+  padding: 6px 4px;
+  font-family: 'Cinzel', serif;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  cursor: pointer;
+  border: 1px solid var(--bronze-dim);
+  background: transparent;
+  color: var(--text-muted);
+  transition: all 0.2s;
+}
+
+.risk-btn.active {
+  background: var(--cyan-dim);
+  border-color: var(--cyan-mid);
+  color: var(--cyan-hot);
+}
+
+.risk-btn:hover:not(.active) {
+  border-color: var(--bronze-dark);
+  color: var(--text-secondary);
+}
+
+.risk-hint {
+  font-family: 'Cinzel', serif;
+  font-size: 8px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ==========================================================================
+   Metric cards
+   ========================================================================== */
+
+.metric-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.metric-card {
+  background: var(--bg-card);
+  border: 1px solid var(--bronze-dim);
+  border-radius: 4px;
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.metric-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--cyan-hot);
+  opacity: 0.3;
+}
+
+.metric-card .card-label {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  color: var(--bronze-mid);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.metric-card .card-value {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 52px;
+  line-height: 1.1;
+  margin-bottom: 10px;
+  transition: color 0.3s;
+}
+
+.metric-card .card-value.bronze { color: var(--bronze-light); }
+.metric-card .card-value.green { color: var(--gain-green); }
+.metric-card .card-value.red { color: var(--loss-red); }
+.metric-card .card-value.cyan { color: var(--cyan-hot); }
+.metric-card .card-value.muted { color: var(--text-muted); }
+
+.metric-card .card-sub {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.metric-card .card-sub.muted {
+  color: var(--text-muted);
+}
+
+/* Card value overflow protection */
+.metric-card .card-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* Sweep Trigger card value override */
+#sweep-status {
+  font-size: 48px;
+}
+
+/* Manual sweep button overflow protection */
+#btn-manual-sweep {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Responsive metric card scaling */
+@media (max-width: 1300px) {
+  .metric-card .card-value {
+    font-size: 36px;
+  }
+  #sweep-status {
+    font-size: 32px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .metric-card .card-value {
+    font-size: 28px;
+  }
+  #sweep-status {
+    font-size: 24px;
+  }
+}
+
+/* Progress bar */
+.progress-bar {
+  height: 4px;
+  background: #2e2830;
+  border-radius: 2px;
+  margin: 8px 0 6px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--cyan-hot);
+  border-radius: 2px;
+  transition: width 0.5s ease;
+  max-width: 100%;
+}
+
+/* Laurel decoration on cards */
+.laurel-decoration {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 10px;
+  opacity: 0.3;
+}
+
+/* Badge */
+.badge {
+  display: inline-block;
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  border-radius: 2px;
+  text-transform: uppercase;
+}
+
+.badge.dim {
+  background: var(--bronze-dim);
+  color: var(--text-muted);
+}
+
+.badge.cyan {
+  background: var(--cyan-dim);
+  color: var(--cyan-mid);
+}
+
+.badge.simulated {
+  background: rgba(196, 144, 80, 0.15);
+  color: var(--warn-amber);
+  border: 1px solid rgba(196, 144, 80, 0.3);
+}
+
+.badge.live {
+  background: rgba(111, 212, 145, 0.15);
+  color: var(--gain-green);
+  border: 1px solid rgba(111, 212, 145, 0.3);
+}
+
+.badge.amber {
+  background: rgba(196, 144, 80, 0.15);
+  color: var(--warn-amber);
+  border: 1px solid rgba(196, 144, 80, 0.3);
+}
+
+.badge.error {
+  background: rgba(224, 96, 96, 0.15);
+  color: var(--loss-red);
+  border: 1px solid rgba(224, 96, 96, 0.3);
+}
+
+.badge.tracked {
+  background: rgba(200, 136, 85, 0.15);
+  color: var(--bronze-light);
+  border: 1px solid var(--bronze-dim);
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+
+/* ==========================================================================
+   Strategy Matrix Panel
+   ========================================================================== */
+
+.strategy-matrix-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--bronze-dim);
+  border-radius: 4px;
+  padding: 14px 16px;
+  margin: 10px 0;
+  overflow: hidden;
+}
+
+.strategy-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.strategy-table thead th {
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--bronze-dim);
+  font-weight: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.strategy-table tbody tr {
+  border-bottom: 1px solid rgba(61,39,24,0.2);
+  transition: background 0.15s;
+}
+
+.strategy-table tbody tr:hover {
+  background: var(--bg-surface);
+}
+
+.strategy-table tbody td {
+  padding: 9px 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+/* Column widths — fixed layout */
+.col-name      { width: 26%; }
+.col-status    { width: 16%; }
+.col-apy       { width: 12%; }
+.col-allocated { width: 14%; }
+.col-pnl       { width: 14%; }
+.col-risk      { width: 12%; }
+
+.strategy-name-main {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  color: var(--text-primary);
+  display: block;
+}
+
+.strategy-name-sub {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  display: block;
+  margin-top: 1px;
+}
+
+.strategy-pos-count {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  color: var(--cyan-mid);
+  display: block;
+  margin-top: 2px;
+}
+
+.col-apy-val {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.col-alloc-val {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: var(--bronze-light);
+}
+
+.col-pnl-val {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+}
+
+.risk-low    { color: var(--gain-green); font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: 0.08em; }
+.risk-medium { color: var(--warn-amber); font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: 0.08em; }
+.risk-high   { color: var(--loss-red);   font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: 0.08em; }
+
+.badge-active-count {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--gain-green);
+  background: rgba(111,212,129,0.08);
+  border: 1px solid rgba(111,212,129,0.2);
+  border-radius: 3px;
+  padding: 3px 10px;
+}
+
+/* ==========================================================================
+   Nova Intelligence Panel
+   ========================================================================== */
+
+.nova-panel {
+  margin-bottom: 20px;
+}
+
+.nova-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.nova-header h2 {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  letter-spacing: 0.15em;
+  color: var(--bronze-mid);
+  text-transform: uppercase;
+}
+
+.nova-subheader {
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  font-style: italic;
+}
+
+.nova-brief-content {
+  background: var(--bg-surface);
+  border: 1px solid var(--bronze-dim);
+  border-left: 3px solid var(--cyan-mid);
+  padding: 16px 20px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+.nova-brief-content .codename {
+  color: var(--cyan-hot);
+  font-weight: bold;
+}
+
+.nova-brief-content .opportunity-value {
+  color: var(--bronze-light);
+}
+
+.nova-brief-content .strategy-divider {
+  border: none;
+  border-top: 1px solid var(--bronze-dim);
+  margin: 12px 0;
+}
+
+.nova-brief-content .nova-offline {
+  color: var(--loss-red);
+}
+
+.nova-brief-content .nova-loading {
+  color: var(--cyan-mid);
+}
+
+.nova-brief-content .nova-stale {
+  color: var(--warn-amber);
+  font-size: 9px;
+  margin-bottom: 8px;
+}
+
+/* Phase 3b-fix: Structured Nova brief blocks */
+.nova-strategy-block {
+  padding: 12px 0;
+}
+
+.nova-strategy-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.nova-codename {
+  font-family: 'Cinzel', serif;
+  font-size: 14px;
+  color: var(--cyan-hot);
+  letter-spacing: 0.12em;
+}
+
+.nova-timeline {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: var(--bronze-mid);
+  background: var(--bg-surface);
+  border: 1px solid var(--bronze-dim);
+  border-radius: 3px;
+  padding: 2px 8px;
+}
+
+.nova-field {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 8px;
+  margin-bottom: 6px;
+  align-items: baseline;
+}
+
+.nova-field-label {
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding-top: 2px;
+}
+
+.nova-field-value {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.nova-field-edge .nova-field-value {
+  color: var(--bronze-light);
+}
+
+.nova-field-risk .nova-field-value {
+  color: var(--warn-amber);
+}
+
+.nova-strategy-divider {
+  height: 1px;
+  background: var(--bronze-dim);
+  margin: 8px 0;
+  opacity: 0.5;
+}
+
+.nova-plain {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.nova-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.nova-timestamp {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
+   Mission Log (Right Panel)
+   ========================================================================== */
+
+.log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.log-header h2 {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  letter-spacing: 0.15em;
+  color: var(--bronze-mid);
+  text-transform: uppercase;
+}
+
+.log-count-badge {
+  display: inline-block;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  padding: 1px 6px;
+  border-radius: 2px;
+  margin-left: 8px;
+}
+
+.log-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.log-entry {
+  border-top: 1px solid var(--bronze-dim);
+  padding: 8px 0;
+}
+
+.log-entry:first-child {
+  border-top: none;
+}
+
+.log-entry-time {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: 3px;
+}
+
+.log-entry-level {
+  display: inline-block;
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  padding: 1px 6px;
+  border-radius: 2px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.log-entry-level.HEARTBEAT {
+  background: var(--bg-surface);
+  color: var(--text-muted);
+}
+
+.log-entry-level.INFO {
+  background: var(--cyan-dim);
+  color: var(--cyan-mid);
+}
+
+.log-entry-level.WARN {
+  background: rgba(196, 144, 80, 0.15);
+  color: var(--warn-amber);
+}
+
+.log-entry-level.ERROR {
+  background: rgba(224, 96, 96, 0.15);
+  color: var(--loss-red);
+}
+
+.log-entry-level.CRITICAL {
+  background: var(--loss-red);
+  color: #fff;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.log-entry-level.SWEEP {
+  background: rgba(111, 212, 145, 0.15);
+  color: var(--gain-green);
+}
+
+.log-entry-level.NOVA {
+  background: rgba(0, 68, 85, 0.3);
+  color: var(--cyan-hot);
+}
+
+.log-entry-message {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+/* Empty log state */
+.log-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+
+.log-empty-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--bronze-dim);
+  margin-bottom: 10px;
+}
+
+.log-empty-text {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+/* Nova sidebar section */
+.nova-sidebar-section {
+  margin-top: auto;
+}
+
+.nova-last-brief {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}

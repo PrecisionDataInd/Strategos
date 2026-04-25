@@ -1,0 +1,30 @@
+# Private keys and secrets
+.env
+.env.local
+*.key
+
+# Build outputs
+dist/
+build/
+out/
+
+# Dependencies (too large for Git, get rebuilt by npm install)
+node_modules/
+
+# Electron store data
+*.store.json
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+debug.log
+npm-debug.log*
