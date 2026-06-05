@@ -19,11 +19,23 @@ function fetchWithTimeout(url) {
   ]);
 }
 
+function isAtaNotFound(err) {
+  const msg = (err && err.message) ? err.message : String(err || '');
+  return (
+    msg.includes('could not find account') ||
+    msg.includes('Account does not exist') ||
+    msg.includes('TokenAccountNotFoundError') ||
+    msg.includes('TokenInvalidAccountOwnerError')
+  );
+}
+
 async function getTotalPortfolioValueSol(connection, agentPublicKey, solBalanceSol) {
   let totalSol = solBalanceSol;
   let usdcSol = 0;
   let msolSol = 0;
   let solPrice = null;
+  let partial = false;
+  const fetchErrors = [];
 
   try {
     const priceRes = await fetchWithTimeout(
@@ -32,32 +44,57 @@ async function getTotalPortfolioValueSol(connection, agentPublicKey, solBalanceS
     if (priceRes.ok) {
       const priceData = await priceRes.json();
       solPrice = priceData?.solana?.usd;
+    } else {
+      fetchErrors.push(`coingecko HTTP ${priceRes.status}`);
     }
-  } catch (_) {}
+  } catch (err) {
+    fetchErrors.push(`coingecko: ${err.message}`);
+  }
+
+  let spl;
+  try {
+    spl = require('@solana/spl-token');
+  } catch (err) {
+    partial = true;
+    fetchErrors.push(`spl-token require failed: ${err.message}`);
+    return { totalSol, solOnly: solBalanceSol, usdcSol, msolSol, solPrice, partial, fetchErrors };
+  }
+
+  const { getAssociatedTokenAddress } = spl;
+
+  if (solPrice) {
+    try {
+      const usdcATA = await getAssociatedTokenAddress(USDC_MINT, agentPublicKey);
+      const usdcBalance = await connection.getTokenAccountBalance(usdcATA);
+      const usdcAmount = parseFloat(usdcBalance.value.uiAmount || 0);
+      usdcSol = usdcAmount / solPrice;
+      totalSol += usdcSol;
+    } catch (err) {
+      if (!isAtaNotFound(err)) {
+        partial = true;
+        fetchErrors.push(`USDC balance RPC: ${err.message}`);
+      }
+    }
+  } else {
+    // No SOL price → can't value USDC at all. Treat as partial only if we
+    // expect USDC holdings; without a price feed this is best-effort.
+    partial = true;
+    fetchErrors.push('USDC valuation skipped: no SOL price');
+  }
 
   try {
-    const { getAssociatedTokenAddress } = require('@solana/spl-token');
-
-    if (solPrice) {
-      try {
-        const usdcATA = await getAssociatedTokenAddress(USDC_MINT, agentPublicKey);
-        const usdcBalance = await connection.getTokenAccountBalance(usdcATA);
-        const usdcAmount = parseFloat(usdcBalance.value.uiAmount || 0);
-        usdcSol = usdcAmount / solPrice;
-        totalSol += usdcSol;
-      } catch (_) {}
+    const msolATA = await getAssociatedTokenAddress(MSOL_MINT, agentPublicKey);
+    const msolBalance = await connection.getTokenAccountBalance(msolATA);
+    msolSol = parseFloat(msolBalance.value.uiAmount || 0);
+    totalSol += msolSol;
+  } catch (err) {
+    if (!isAtaNotFound(err)) {
+      partial = true;
+      fetchErrors.push(`mSOL balance RPC: ${err.message}`);
     }
+  }
 
-    try {
-      const msolATA = await getAssociatedTokenAddress(MSOL_MINT, agentPublicKey);
-      const msolBalance = await connection.getTokenAccountBalance(msolATA);
-      msolSol = parseFloat(msolBalance.value.uiAmount || 0);
-      totalSol += msolSol;
-    } catch (_) {}
-
-  } catch (_) {}
-
-  return { totalSol, solOnly: solBalanceSol, usdcSol, msolSol, solPrice };
+  return { totalSol, solOnly: solBalanceSol, usdcSol, msolSol, solPrice, partial, fetchErrors };
 }
 
 function initSession(currentBalanceSol) {
@@ -129,6 +166,21 @@ function checkDrawdown(totalPortfolioSol, log, breakdown) {
       drawdownPct: 0,
       fullHalt: false,
       inGracePeriod: true,
+    };
+  }
+
+  // If breakdown is incomplete, totalPortfolioSol is undercounted —
+  // never halt off a partial fetch.
+  if (breakdown && breakdown.partial) {
+    log('WARN',
+      `RISK: portfolio breakdown partial — halt check deferred (${(breakdown.fetchErrors || []).join('; ')})`,
+      { partial: true, fetchErrors: breakdown.fetchErrors }
+    );
+    return {
+      haltedTiers: [],
+      drawdownPct: 0,
+      fullHalt: false,
+      partial: true,
     };
   }
 

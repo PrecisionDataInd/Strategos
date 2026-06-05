@@ -158,12 +158,21 @@ async function executeArbitrage({ connection, agentKeypair, amountSol, config, l
     });
     await connection.confirmTransaction(txid, 'confirmed');
 
-    log('INFO', `ARB EXECUTED: ${amountSol.toFixed(4)} SOL → ${quotedUSDC.toFixed(2)} USDC | txid ${txid}`, { txid });
+    // Realized P&L in SOL: output value at market - input - estimated fee.
+    // marketPriceSol is the CoinGecko mid captured in Step 2b; null if that
+    // fetch failed, in which case we cannot honestly compute profitSol.
+    let profitSol = 0;
+    if (marketPriceSol && marketPriceSol > 0) {
+      profitSol = (quotedUSDC / marketPriceSol) - amountSol - ESTIMATED_FEE_SOL;
+    }
+
+    log('INFO', `ARB EXECUTED: ${amountSol.toFixed(4)} SOL → ${quotedUSDC.toFixed(2)} USDC | profitSol ${profitSol.toFixed(6)} | txid ${txid}`, { txid, profitSol });
 
     savePosition('arbitrage', {
       amountSol,
       entryValueSol: amountSol,
       outputUSDC: quotedUSDC,
+      profitSol,
       txid,
       status: 'CLOSED', // Arb is instant — open and close same tick
       apy: 'Variable',
@@ -171,7 +180,7 @@ async function executeArbitrage({ connection, agentKeypair, amountSol, config, l
       closedAt: new Date().toISOString(),
     });
 
-    return { success: true, txid, amountSol, outputUSDC: quotedUSDC, strategy: 'jupiter-arb', apy: 'Variable', _displayStatus: 'ACTIVE' };
+    return { success: true, txid, amountSol, outputUSDC: quotedUSDC, profitSol, strategy: 'jupiter-arb', apy: 'Variable', _displayStatus: 'ACTIVE' };
 
   } catch (err) {
     log('ERROR', `ARB TX FAILED: ${err.message}`, { error: err.message });

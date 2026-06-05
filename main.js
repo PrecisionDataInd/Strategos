@@ -16,6 +16,7 @@ const { startPriceFeed, getCachedPrice } = require('./agent/price-feed');
 const { startReportScheduler, sendDailyReport } = require('./agent/reporter');
 const { getPortfolioSummary, getTransactionLedger } = require('./agent/portfolio');
 const { runUnwind } = require('./agent/unwind');
+const { getCurrentConnection, getCurrentEndpoint, recordRpcFailure, recordRpcSuccess } = require('./agent/rpc-manager');
 
 // ---------------------------------------------------------------------------
 // Dependency check — log missing packages without crashing
@@ -129,24 +130,33 @@ function initWallet() {
     }
   }
 
-  const rpc = process.env.RPC_ENDPOINT || 'https://api.mainnet-beta.solana.com';
-  connection = new Connection(rpc, { commitment: 'confirmed' });
+  // Connection is provided by rpc-manager so failures rotate endpoints.
+  connection = getCurrentConnection();
+  console.log(`[STRATEGOS] RPC initialized via rpc-manager → ${getCurrentEndpoint()}`);
 }
 
 let cachedAgentBalance = 0;
 let cachedVaultBalance = 0;
 
 async function getBalance(pubkey) {
-  if (!connection || !pubkey) return 0;
+  if (!pubkey) return 0;
+  // Always pull the current connection from rpc-manager so balance reads
+  // pick up the new endpoint immediately after a failover.
+  const conn = getCurrentConnection();
+  if (!conn) return 0;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
   try {
-    const lamports = await connection.getBalance(pubkey, { signal: controller.signal });
+    const lamports = await conn.getBalance(pubkey, { signal: controller.signal });
     clearTimeout(timeout);
+    recordRpcSuccess();
     return lamports / LAMPORTS_PER_SOL;
   } catch (e) {
     clearTimeout(timeout);
     console.error('RPC getBalance error:', e.message);
+    recordRpcFailure();
+    // Refresh local handle in case rpc-manager just rotated endpoints
+    connection = getCurrentConnection();
     return null;
   }
 }

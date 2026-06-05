@@ -4,7 +4,7 @@ const {
   initSession,
   recordBalance,
   checkDrawdown,
-  resetSession,
+  getRiskStatus,
   getTotalPortfolioValueSol,
   shouldDailyReset,
   performDailyReset,
@@ -73,7 +73,10 @@ async function startAgentLoop(dependencies) {
       logEntry('WARN', `Could not seed existing positions: ${err.message}`);
     }
 
-    // Reset risk manager session high to current total portfolio value
+    // Seed risk manager session high ONLY if not already set.
+    // Never reset sessionHigh on startup — that wipes drawdown protection
+    // when restarting at a drawn-down balance. resetSession is exposed via
+    // IPC for explicit operator rebaselining.
     try {
       const currentBalance = await deps.connection.getBalance(deps.agentKeypair.publicKey) / 1e9;
       const portfolioBreakdown = await getTotalPortfolioValueSol(
@@ -81,10 +84,15 @@ async function startAgentLoop(dependencies) {
         deps.agentKeypair.publicKey,
         currentBalance
       );
-      resetSession(portfolioBreakdown.totalSol);
-      logEntry('INFO', `RISK MANAGER: session reset — new baseline ${portfolioBreakdown.totalSol.toFixed(4)} SOL (${currentBalance.toFixed(4)} SOL + ${portfolioBreakdown.usdcSol.toFixed(4)} USDC-equiv + ${portfolioBreakdown.msolSol.toFixed(4)} mSOL)`);
+      if (portfolioBreakdown.partial) {
+        logEntry('WARN', `RISK MANAGER: skipping initSession — partial portfolio fetch (${(portfolioBreakdown.fetchErrors || []).join('; ')})`);
+      } else {
+        initSession(portfolioBreakdown.totalSol);
+      }
+      const status = getRiskStatus();
+      logEntry('INFO', `RISK MANAGER: session resumed — sessionHigh ${(status.sessionHigh || 0).toFixed(4)} SOL, tick ${status.tickCount || 0}/3 grace | current ${portfolioBreakdown.totalSol.toFixed(4)} SOL (${currentBalance.toFixed(4)} SOL + ${portfolioBreakdown.usdcSol.toFixed(4)} USDC-equiv + ${portfolioBreakdown.msolSol.toFixed(4)} mSOL${portfolioBreakdown.partial ? ' — PARTIAL' : ''})`);
     } catch (err) {
-      logEntry('WARN', `Could not reset risk session: ${err.message}`);
+      logEntry('WARN', `Could not init risk session: ${err.message}`);
     }
   }
 
@@ -162,7 +170,9 @@ async function runTick() {
       } catch (_) {}
     }
 
-    initSession(totalPortfolioSol);
+    if (!portfolioBreakdown || !portfolioBreakdown.partial) {
+      initSession(totalPortfolioSol);
+    }
     recordBalance(totalPortfolioSol);
 
     const riskCheck = checkDrawdown(totalPortfolioSol, logFn, portfolioBreakdown);

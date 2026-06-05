@@ -1,23 +1,18 @@
-const {
-  PublicKey,
-  VersionedTransaction,
-  Transaction,
-  LAMPORTS_PER_SOL,
-} = require('@solana/web3.js');
+const { PublicKey } = require('@solana/web3.js');
 const { savePosition, getOpenPositions, closePosition } = require('../positions');
 
-const SOLEND_API = 'https://api.solend.fi';
-const FETCH_TIMEOUT_MS = 10000;
+const SOL_MINT = 'So11111111111111111111111111111111111111112';
+const SOLEND_POOL = 'main';
 
-console.log('[STRATEGOS] Lending: Solend REST API mode (no SDK required)');
-
-function fetchWithTimeout(url, options = {}) {
-  return Promise.race([
-    fetch(url, options),
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('TIMEOUT')), FETCH_TIMEOUT_MS)
-    ),
-  ]);
+let SolendAction;
+let solendAvailable = false;
+try {
+  const solendSdk = require('@solendprotocol/solend-sdk');
+  SolendAction = solendSdk.SolendAction;
+  solendAvailable = true;
+  console.log('[STRATEGOS] Lending: Solend SDK loaded');
+} catch (e) {
+  console.warn('[STRATEGOS] Lending: Solend SDK unavailable —', e.message);
 }
 
 async function executeLending({ connection, agentKeypair, amountSol, log }) {
@@ -30,7 +25,6 @@ async function executeLending({ connection, agentKeypair, amountSol, log }) {
     };
   }
 
-  // Position-exists check
   const existing = getOpenPositions('lending');
   if (existing.length > 0) {
     const pos = existing[0];
@@ -49,6 +43,7 @@ async function executeLending({ connection, agentKeypair, amountSol, log }) {
           success: true,
           exited: true,
           reason: 'STOP_LOSS',
+          profitSol: 0,
           _displayStatus: 'STANDBY',
         };
       }
@@ -64,130 +59,86 @@ async function executeLending({ connection, agentKeypair, amountSol, log }) {
       strategy: 'solend-lending',
       apy: '~6.5%',
       amountSol: pos.amountSol,
-      _displayStatus: pos.tracked ? 'TRACKED' : 'ACTIVE',
+      profitSol: 0,
+      _displayStatus: 'ACTIVE',
+    };
+  }
+
+  if (!solendAvailable) {
+    log('ERROR',
+      'LENDING DISABLED: @solendprotocol/solend-sdk not installed — run npm install to enable',
+      {}
+    );
+    return {
+      success: false,
+      reason: 'SDK_NOT_INSTALLED',
+      soft: true,
+      _displayStatus: 'ERROR',
     };
   }
 
   try {
     log('INFO',
-      `LENDING: depositing ${amountSol.toFixed(4)} SOL via Solend`,
+      `LENDING: depositing ${amountSol.toFixed(4)} SOL into Solend`,
       { amount: amountSol }
     );
 
-    const depositRes = await fetchWithTimeout(
-      `${SOLEND_API}/v1/actions/deposit?amount=${Math.floor(amountSol * LAMPORTS_PER_SOL)}&symbol=SOL&pool=main&publicKey=${agentKeypair.publicKey.toString()}`
+    const solendAction = await SolendAction.buildDepositTxns(
+      connection,
+      Math.floor(amountSol * 1e9).toString(),
+      SOL_MINT,
+      agentKeypair.publicKey,
+      SOLEND_POOL,
+      'production'
     );
 
-    if (!depositRes.ok) {
-      log('WARN',
-        `LENDING: Solend API ${depositRes.status} — tracking locally`,
-        {}
-      );
-      savePosition('lending', {
-        amountSol,
-        entryValueSol: amountSol,
-        currentBalance: amountSol,
-        protocol: 'solend-tracked',
-        tracked: true,
-        status: 'OPEN',
-        apy: '~6.5%',
-        openedAt: new Date().toISOString(),
-      });
-      return {
-        success: true,
-        amountSol,
-        strategy: 'solend-lending',
-        apy: '~6.5%',
-        tracked: true,
-        _displayStatus: 'TRACKED',
-      };
-    }
-
-    const depositData = await depositRes.json();
-    const txData = depositData?.transaction || depositData?.tx;
-
-    if (!txData) {
-      savePosition('lending', {
-        amountSol,
-        entryValueSol: amountSol,
-        currentBalance: amountSol,
-        protocol: 'solend-tracked',
-        tracked: true,
-        status: 'OPEN',
-        apy: '~6.5%',
-        openedAt: new Date().toISOString(),
-      });
-      return {
-        success: true,
-        amountSol,
-        strategy: 'solend-lending',
-        apy: '~6.5%',
-        tracked: true,
-        _displayStatus: 'TRACKED',
-      };
-    }
-
-    const txBuf = Buffer.from(txData, 'base64');
-    let tx;
-    try {
-      tx = VersionedTransaction.deserialize(txBuf);
-      tx.sign([agentKeypair]);
-    } catch {
-      tx = Transaction.from(txBuf);
+    const { lendingInstructions } = await solendAction.getTransactions();
+    let lastTxid;
+    for (const tx of lendingInstructions) {
+      tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+      tx.feePayer = agentKeypair.publicKey;
       tx.sign(agentKeypair);
+      const txid = await connection.sendRawTransaction(tx.serialize(), { maxRetries: 3 });
+      await connection.confirmTransaction(txid, 'confirmed');
+      lastTxid = txid;
+      log('INFO',
+        `LENDING CONFIRMED: ${amountSol.toFixed(4)} SOL into Solend | txid ${txid}`,
+        { txid }
+      );
     }
-
-    const txid = await connection.sendRawTransaction(tx.serialize(), {
-      skipPreflight: false,
-      maxRetries: 3,
-    });
-    await connection.confirmTransaction(txid, 'confirmed');
 
     savePosition('lending', {
       amountSol,
       entryValueSol: amountSol,
       currentBalance: amountSol,
       protocol: 'solend',
-      txid,
+      txid: lastTxid,
       status: 'OPEN',
       apy: '~6.5%',
+      profitSol: 0,
       openedAt: new Date().toISOString(),
     });
 
-    log('INFO',
-      `LENDING CONFIRMED: ${amountSol.toFixed(4)} SOL | txid ${txid}`,
-      { txid, amountSol }
-    );
     return {
       success: true,
-      txid,
+      txid: lastTxid,
       amountSol,
       strategy: 'solend-lending',
       apy: '~6.5%',
+      profitSol: 0,
       _displayStatus: 'ACTIVE',
     };
   } catch (err) {
-    log('WARN',
-      `LENDING: error ${err.message} — tracking locally`,
+    log('ERROR',
+      `LENDING FAILED: ${err.message}`,
       { error: err.message }
     );
-    savePosition('lending', {
-      amountSol,
-      entryValueSol: amountSol,
-      currentBalance: amountSol,
-      protocol: 'solend-tracked',
-      tracked: true,
-      status: 'OPEN',
-      apy: '~6.5%',
-      openedAt: new Date().toISOString(),
-    });
     return {
-      success: true,
-      amountSol,
-      strategy: 'solend-lending',
-      apy: '~6.5%',
-      tracked: true,
-      _displayStatus: 'TRACKED',
+      success: false,
+      error: err.message,
+      reason: 'TX_FAILED',
+      soft: true,
+      _displayStatus: 'ERROR',
     };
   }
 }

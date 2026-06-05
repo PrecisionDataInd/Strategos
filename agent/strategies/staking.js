@@ -1,25 +1,20 @@
-const {
-  PublicKey,
-  VersionedTransaction,
-  Transaction,
-  LAMPORTS_PER_SOL,
-} = require('@solana/web3.js');
+const { PublicKey, LAMPORTS_PER_SOL } = require('@solana/web3.js');
 const { getAssociatedTokenAddress } = require('@solana/spl-token');
 const { savePosition, getOpenPositions, updatePosition } = require('../positions');
 
-const MARINADE_API = 'https://api.marinade.finance';
 const MSOL_MINT = new PublicKey('mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So');
-const FETCH_TIMEOUT_MS = 10000;
 
-console.log('[STRATEGOS] Staking: Marinade REST API mode (no SDK required)');
-
-function fetchWithTimeout(url, options = {}) {
-  return Promise.race([
-    fetch(url, options),
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('TIMEOUT')), FETCH_TIMEOUT_MS)
-    ),
-  ]);
+let MarinadeUtils, Marinade, MarinadeConfig;
+let marinadeAvailable = false;
+try {
+  const marinadeSdk = require('@marinade.finance/marinade-ts-sdk');
+  MarinadeUtils = marinadeSdk.MarinadeUtils;
+  Marinade = marinadeSdk.Marinade;
+  MarinadeConfig = marinadeSdk.MarinadeConfig;
+  marinadeAvailable = true;
+  console.log('[STRATEGOS] Staking: Marinade SDK loaded');
+} catch (e) {
+  console.warn('[STRATEGOS] Staking: Marinade SDK unavailable —', e.message);
 }
 
 async function executeStaking({ connection, agentKeypair, amountSol, log }) {
@@ -37,9 +32,7 @@ async function executeStaking({ connection, agentKeypair, amountSol, log }) {
   if (existing.length > 0) {
     const pos = existing[0];
     try {
-      const msolATA = await getAssociatedTokenAddress(
-        MSOL_MINT, agentKeypair.publicKey
-      );
+      const msolATA = await getAssociatedTokenAddress(MSOL_MINT, agentKeypair.publicKey);
       const msolBalance = await connection.getTokenAccountBalance(msolATA);
       const currentMsol = parseFloat(msolBalance.value.uiAmount || 0);
       updatePosition('staking', pos.id, {
@@ -63,15 +56,15 @@ async function executeStaking({ connection, agentKeypair, amountSol, log }) {
       strategy: 'marinade-staking',
       apy: '~8%',
       amountSol: pos.amountSol,
+      profitSol: 0,
       _displayStatus: 'ACTIVE',
     };
   }
 
-  // Also check if mSOL exists in wallet (position record may have been lost)
+  // Wallet-seed check: record an existing on-chain mSOL balance as a
+  // position so subsequent ticks treat it as held capital.
   try {
-    const msolATA = await getAssociatedTokenAddress(
-      MSOL_MINT, agentKeypair.publicKey
-    );
+    const msolATA = await getAssociatedTokenAddress(MSOL_MINT, agentKeypair.publicKey);
     const msolBalance = await connection.getTokenAccountBalance(msolATA);
     const existingMsol = parseFloat(msolBalance.value.uiAmount || 0);
     if (existingMsol > 0.001) {
@@ -86,6 +79,7 @@ async function executeStaking({ connection, agentKeypair, amountSol, log }) {
         status: 'OPEN',
         apy: '~8%',
         seeded: true,
+        profitSol: 0,
         openedAt: new Date().toISOString(),
       });
       return {
@@ -94,6 +88,7 @@ async function executeStaking({ connection, agentKeypair, amountSol, log }) {
         strategy: 'marinade-staking',
         apy: '~8%',
         amountSol: existingMsol,
+        profitSol: 0,
         _displayStatus: 'ACTIVE',
       };
     }
@@ -101,82 +96,44 @@ async function executeStaking({ connection, agentKeypair, amountSol, log }) {
     // No mSOL ATA exists — proceed with deposit
   }
 
-  // Deposit via Marinade REST API
+  // Hard-fail if the SDK isn't installed. No local-tracking fallback —
+  // the agent must not report a successful staking deployment without
+  // an actual on-chain transaction.
+  if (!marinadeAvailable) {
+    log('ERROR',
+      'STAKING DISABLED: @marinade.finance/marinade-ts-sdk not installed — run npm install to enable',
+      {}
+    );
+    return {
+      success: false,
+      reason: 'SDK_NOT_INSTALLED',
+      soft: true,
+      _displayStatus: 'ERROR',
+    };
+  }
+
   try {
     log('INFO',
       `STAKING: depositing ${amountSol.toFixed(4)} SOL into Marinade`,
       { amount: amountSol }
     );
 
-    const lamports = Math.floor(amountSol * LAMPORTS_PER_SOL);
-    const depositRes = await fetchWithTimeout(
-      `${MARINADE_API}/v1/stake`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lamports: lamports.toString(),
-          userPublicKey: agentKeypair.publicKey.toString(),
-        }),
-      }
+    const cfg = new MarinadeConfig({
+      connection,
+      publicKey: agentKeypair.publicKey,
+    });
+    const marinade = new Marinade(cfg);
+
+    const { transaction } = await marinade.deposit(
+      MarinadeUtils.solToLamports(amountSol)
     );
 
-    if (!depositRes.ok) {
-      log('WARN',
-        `STAKING: Marinade API ${depositRes.status} — tracking position locally`,
-        {}
-      );
-      savePosition('staking', {
-        amountSol,
-        protocol: 'marinade-tracked',
-        tracked: true,
-        status: 'OPEN',
-        apy: '~8%',
-        openedAt: new Date().toISOString(),
-      });
-      return {
-        success: true,
-        amountSol,
-        strategy: 'marinade-staking',
-        apy: '~8%',
-        tracked: true,
-        _displayStatus: 'TRACKED',
-      };
-    }
+    const { blockhash } = await connection.getLatestBlockhash();
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = agentKeypair.publicKey;
+    transaction.sign(agentKeypair);
 
-    const data = await depositRes.json();
-    const txData = data?.transaction || data?.tx;
-
-    if (!txData) {
-      savePosition('staking', {
-        amountSol,
-        protocol: 'marinade-tracked',
-        tracked: true,
-        status: 'OPEN',
-        apy: '~8%',
-        openedAt: new Date().toISOString(),
-      });
-      return {
-        success: true,
-        amountSol,
-        strategy: 'marinade-staking',
-        apy: '~8%',
-        tracked: true,
-        _displayStatus: 'TRACKED',
-      };
-    }
-
-    const txBuf = Buffer.from(txData, 'base64');
-    let tx;
-    try {
-      tx = VersionedTransaction.deserialize(txBuf);
-      tx.sign([agentKeypair]);
-    } catch {
-      tx = Transaction.from(txBuf);
-      tx.sign(agentKeypair);
-    }
-
-    const txid = await connection.sendRawTransaction(tx.serialize(), {
+    const txid = await connection.sendRawTransaction(transaction.serialize(), {
       skipPreflight: false,
       maxRetries: 3,
     });
@@ -184,10 +141,12 @@ async function executeStaking({ connection, agentKeypair, amountSol, log }) {
 
     savePosition('staking', {
       amountSol,
+      entryValueSol: amountSol,
       protocol: 'marinade',
       txid,
       status: 'OPEN',
       apy: '~8%',
+      profitSol: 0,
       openedAt: new Date().toISOString(),
     });
 
@@ -201,28 +160,20 @@ async function executeStaking({ connection, agentKeypair, amountSol, log }) {
       amountSol,
       strategy: 'marinade-staking',
       apy: '~8%',
+      profitSol: 0,
       _displayStatus: 'ACTIVE',
     };
   } catch (err) {
-    log('WARN',
-      `STAKING: error ${err.message} — tracking locally`,
+    log('ERROR',
+      `STAKING FAILED: ${err.message}`,
       { error: err.message }
     );
-    savePosition('staking', {
-      amountSol,
-      protocol: 'marinade-tracked',
-      tracked: true,
-      status: 'OPEN',
-      apy: '~8%',
-      openedAt: new Date().toISOString(),
-    });
     return {
-      success: true,
-      amountSol,
-      strategy: 'marinade-staking',
-      apy: '~8%',
-      tracked: true,
-      _displayStatus: 'TRACKED',
+      success: false,
+      error: err.message,
+      reason: 'TX_FAILED',
+      soft: true,
+      _displayStatus: 'ERROR',
     };
   }
 }
